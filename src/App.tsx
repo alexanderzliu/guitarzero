@@ -1,6 +1,24 @@
+import { useState } from 'react';
 import { DebugPanel } from './components/DebugPanel';
+import { CalibrationWizard } from './components/Calibration';
+import { loadCalibration } from './lib/storage/calibrationStorage';
+
+type AppView = 'main' | 'calibration';
 
 function App() {
+  const [view, setView] = useState<AppView>('main');
+
+  // Full-screen calibration view
+  if (view === 'calibration') {
+    return (
+      <CalibrationWizard
+        onComplete={() => setView('main')}
+        onCancel={() => setView('main')}
+      />
+    );
+  }
+
+  // Main view
   return (
     <div className="min-h-screen bg-slate-900 p-8">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -12,32 +30,38 @@ function App() {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Debug Panel */}
+          {/* Left Column: Debug Panel */}
           <div>
             <DebugPanel />
           </div>
 
-          {/* Placeholder for future components */}
-          <div className="bg-slate-800 rounded-lg p-4">
-            <h2 className="text-lg font-bold text-slate-200 mb-4">Instructions</h2>
-            <div className="text-slate-400 text-sm space-y-3">
-              <p>
-                1. Connect your guitar to your computer via USB (Fender Mustang LT25)
-              </p>
-              <p>
-                2. Select the audio input device from the dropdown
-              </p>
-              <p>
-                3. Click "Start Audio" to begin pitch detection
-              </p>
-              <p>
-                4. Play some notes! The detected pitch will appear in real-time.
-              </p>
-              <div className="mt-4 p-3 bg-slate-700 rounded">
-                <p className="text-xs text-slate-500">
-                  Tip: For best results, make sure your amp's USB output is set as the audio
-                  input. The detection works best with clean, sustained notes.
+          {/* Right Column: Calibration + Instructions */}
+          <div className="space-y-4">
+            {/* Calibration Card */}
+            <CalibrationCard onStartCalibration={() => setView('calibration')} />
+
+            {/* Instructions Card */}
+            <div className="bg-slate-800 rounded-lg p-4">
+              <h2 className="text-lg font-bold text-slate-200 mb-4">Instructions</h2>
+              <div className="text-slate-400 text-sm space-y-3">
+                <p>
+                  1. Connect your guitar to your computer via USB (Fender Mustang LT25)
                 </p>
+                <p>
+                  2. Select the audio input device from the dropdown
+                </p>
+                <p>
+                  3. Click "Start Audio" to begin pitch detection
+                </p>
+                <p>
+                  4. Play some notes! The detected pitch will appear in real-time.
+                </p>
+                <div className="mt-4 p-3 bg-slate-700 rounded">
+                  <p className="text-xs text-slate-500">
+                    Tip: For best results, make sure your amp's USB output is set as the audio
+                    input. The detection works best with clean, sustained notes.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -45,9 +69,59 @@ function App() {
 
         {/* Footer */}
         <footer className="text-center text-slate-500 text-sm">
-          Phase 1: Audio Foundation - Testing pitch detection
+          Phase 1: Audio Foundation with Latency Calibration
         </footer>
       </div>
+    </div>
+  );
+}
+
+interface CalibrationCardProps {
+  onStartCalibration: () => void;
+}
+
+function CalibrationCard({ onStartCalibration }: CalibrationCardProps) {
+  const calibration = loadCalibration(null); // Check default device
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-bold text-slate-200">Latency Calibration</h2>
+        {calibration ? (
+          <span className="text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded">
+            Calibrated
+          </span>
+        ) : (
+          <span className="text-xs bg-yellow-900/50 text-yellow-400 px-2 py-1 rounded">
+            Not calibrated
+          </span>
+        )}
+      </div>
+
+      {calibration ? (
+        <div className="text-sm text-slate-400 mb-3">
+          <p>
+            Current offset:{' '}
+            <span className="text-slate-200 font-mono">
+              {(calibration.offsetSec * 1000).toFixed(1)}ms
+            </span>
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Last calibrated: {new Date(calibration.calibratedAt).toLocaleDateString()}
+          </p>
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400 mb-3">
+          Calibrate your audio input for accurate timing detection during gameplay.
+        </p>
+      )}
+
+      <button
+        onClick={onStartCalibration}
+        className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors text-sm"
+      >
+        {calibration ? 'Recalibrate' : 'Start Calibration'}
+      </button>
     </div>
   );
 }

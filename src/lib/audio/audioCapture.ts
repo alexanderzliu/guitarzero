@@ -1,4 +1,5 @@
 import type { WorkletMessage, AudioConfig, PitchDetectionResult } from '../../types';
+import { getCalibrationOffset } from '../storage/calibrationStorage';
 
 export interface AudioCaptureCallbacks {
   onPitch?: (result: PitchDetectionResult) => void;
@@ -50,6 +51,9 @@ export class AudioCapture {
     this.callbacks.onStateChange?.('starting');
 
     try {
+      // Load calibration offset for this device
+      this.loadCalibrationFromStorage();
+
       // Create audio context
       this.audioContext = new AudioContext({
         sampleRate: this.config.sampleRate,
@@ -147,6 +151,15 @@ export class AudioCapture {
   }
 
   /**
+   * Get current time adjusted for calibrated input latency.
+   * Use this when comparing detected events to expected times.
+   */
+  getCalibratedTime(): number {
+    const rawTime = this.getCurrentTime();
+    return rawTime - this.config.inputOffsetSec;
+  }
+
+  /**
    * Get the audio context (for synchronizing with game clock)
    */
   getAudioContext(): AudioContext | null {
@@ -165,6 +178,21 @@ export class AudioCapture {
    */
   updateConfig(config: Partial<AudioConfig>): void {
     this.config = { ...this.config, ...config };
+  }
+
+  /**
+   * Load calibration offset for the current device from storage
+   */
+  loadCalibrationFromStorage(): void {
+    const offset = getCalibrationOffset(this.deviceId);
+    this.config.inputOffsetSec = offset;
+  }
+
+  /**
+   * Set the input latency offset directly
+   */
+  setInputOffset(offsetSec: number): void {
+    this.config.inputOffsetSec = offsetSec;
   }
 
   /**
