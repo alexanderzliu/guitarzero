@@ -1,19 +1,76 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DebugPanel } from './components/DebugPanel';
 import { CalibrationWizard } from './components/Calibration';
+import { TabImportWizard } from './components/TabImport';
+import { TabPreview } from './components/TabPreview';
+import { TabList } from './components/TabList';
 import { loadCalibration } from './lib/storage/calibrationStorage';
+import { listTabs, loadTab, deleteTab, type TabMetadata } from './lib/storage/tabStorage';
+import type { Tab } from './types';
 
-type AppView = 'main' | 'calibration';
+type AppView = 'main' | 'calibration' | 'tab-import' | 'tab-preview';
 
 function App() {
   const [view, setView] = useState<AppView>('main');
+  const [tabs, setTabs] = useState<TabMetadata[]>([]);
+  const [selectedTab, setSelectedTab] = useState<Tab | null>(null);
 
-  // Full-screen calibration view
+  // Load tabs on mount
+  useEffect(() => {
+    setTabs(listTabs());
+  }, []);
+
+  const handleTabImported = (tab: Tab) => {
+    setTabs(listTabs()); // Refresh tab list
+    setSelectedTab(tab);
+    setView('tab-preview');
+  };
+
+  const handleSelectTab = (id: string) => {
+    const tab = loadTab(id);
+    if (tab) {
+      setSelectedTab(tab);
+      setView('tab-preview');
+    }
+  };
+
+  const handleDeleteTab = () => {
+    if (selectedTab) {
+      deleteTab(selectedTab.id);
+      setTabs(listTabs());
+      setSelectedTab(null);
+      setView('main');
+    }
+  };
+
+  // Full-screen views
   if (view === 'calibration') {
     return (
       <CalibrationWizard
         onComplete={() => setView('main')}
         onCancel={() => setView('main')}
+      />
+    );
+  }
+
+  if (view === 'tab-import') {
+    return (
+      <TabImportWizard
+        onComplete={handleTabImported}
+        onCancel={() => setView('main')}
+      />
+    );
+  }
+
+  if (view === 'tab-preview' && selectedTab) {
+    return (
+      <TabPreview
+        tab={selectedTab}
+        onClose={() => {
+          setSelectedTab(null);
+          setView('main');
+        }}
+        onDelete={handleDeleteTab}
       />
     );
   }
@@ -30,9 +87,14 @@ function App() {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column: Debug Panel */}
-          <div>
+          {/* Left Column: Debug Panel + Tab Library */}
+          <div className="space-y-4">
             <DebugPanel />
+            <TabList
+              tabs={tabs}
+              onSelectTab={handleSelectTab}
+              onImportTab={() => setView('tab-import')}
+            />
           </div>
 
           {/* Right Column: Calibration + Instructions */}
@@ -54,7 +116,7 @@ function App() {
                   3. Click "Start Audio" to begin pitch detection
                 </p>
                 <p>
-                  4. Play some notes! The detected pitch will appear in real-time.
+                  4. Import a tab and start practicing!
                 </p>
                 <div className="mt-4 p-3 bg-slate-700 rounded">
                   <p className="text-xs text-slate-500">
@@ -69,7 +131,7 @@ function App() {
 
         {/* Footer */}
         <footer className="text-center text-slate-500 text-sm">
-          Phase 1: Audio Foundation with Latency Calibration
+          Phase 2: Tab Format & Import
         </footer>
       </div>
     </div>
