@@ -6,9 +6,10 @@ interface TabPreviewProps {
   tab: Tab;
   onClose: () => void;
   onDelete?: () => void;
+  onPlay?: () => void;
 }
 
-export function TabPreview({ tab, onClose, onDelete }: TabPreviewProps) {
+export function TabPreview({ tab, onClose, onDelete, onPlay }: TabPreviewProps) {
   const totalNotes = tab.sections.reduce(
     (sum, section) =>
       sum + section.measures.reduce(
@@ -97,6 +98,17 @@ export function TabPreview({ tab, onClose, onDelete }: TabPreviewProps) {
 
         {/* Action Buttons */}
         <div className="flex gap-4">
+          {onPlay && (
+            <button
+              onClick={onPlay}
+              className="flex-1 py-3 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              Play
+            </button>
+          )}
           <button
             onClick={onClose}
             className="flex-1 py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors"

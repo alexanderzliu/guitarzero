@@ -4,11 +4,12 @@ import { CalibrationWizard } from './components/Calibration';
 import { TabImportWizard } from './components/TabImport';
 import { TabPreview } from './components/TabPreview';
 import { TabList } from './components/TabList';
+import { GameScreen } from './components/GameScreen';
 import { loadCalibration } from './lib/storage/calibrationStorage';
 import { listTabs, loadTab, deleteTab, type TabMetadata } from './lib/storage/tabStorage';
 import type { Tab } from './types';
 
-type AppView = 'main' | 'calibration' | 'tab-import' | 'tab-preview';
+type AppView = 'main' | 'calibration' | 'tab-import' | 'tab-preview' | 'game';
 
 function App() {
   const [view, setView] = useState<AppView>('main');
@@ -71,6 +72,16 @@ function App() {
           setView('main');
         }}
         onDelete={handleDeleteTab}
+        onPlay={() => setView('game')}
+      />
+    );
+  }
+
+  if (view === 'game' && selectedTab) {
+    return (
+      <GameScreen
+        tab={selectedTab}
+        onExit={() => setView('tab-preview')}
       />
     );
   }
@@ -131,7 +142,7 @@ function App() {
 
         {/* Footer */}
         <footer className="text-center text-slate-500 text-sm">
-          Phase 2: Tab Format & Import
+          Phase 3: Tab Display & Playhead
         </footer>
       </div>
     </div>
