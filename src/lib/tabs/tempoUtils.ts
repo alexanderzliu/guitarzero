@@ -1,4 +1,4 @@
-import type { Tab, TempoEvent, Technique } from '../../types';
+import type { Tab, TempoEvent, Technique, ScoreResult } from '../../types';
 
 // ============================================================================
 // Tempo Map Utilities - Tick/Time Conversion
@@ -114,6 +114,7 @@ export interface RenderNote {
   midi: number;
   technique?: Technique;
   isChord: boolean; // True if part of multi-note event
+  hitResult?: ScoreResult; // Set when note is hit or missed
 }
 
 /**

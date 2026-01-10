@@ -1,0 +1,245 @@
+{
+  "id": "sample-open-g-blues",
+  "title": "Open G Blues Lick",
+  "artist": "Sample",
+  "ppq": 480,
+  "timeSignature": [4, 4],
+  "tuning": [62, 59, 55, 50, 43, 38],
+  "tempoMap": [{ "tick": 0, "bpm": 80 }],
+  "sections": [
+    {
+      "id": "intro",
+      "name": "Intro - Open G Chord",
+      "startTick": 0,
+      "measures": [
+        {
+          "id": "m1",
+          "number": 1,
+          "events": [
+            {
+              "id": "e1",
+              "tick": 0,
+              "durationTicks": 960,
+              "notes": [
+                { "string": 6, "fret": 0, "midi": 38 },
+                { "string": 5, "fret": 0, "midi": 43 },
+                { "string": 4, "fret": 0, "midi": 50 },
+                { "string": 3, "fret": 0, "midi": 55 },
+                { "string": 2, "fret": 0, "midi": 59 },
+                { "string": 1, "fret": 0, "midi": 62 }
+              ]
+            },
+            {
+              "id": "e2",
+              "tick": 960,
+              "durationTicks": 960,
+              "notes": [
+                { "string": 6, "fret": 0, "midi": 38 },
+                { "string": 5, "fret": 0, "midi": 43 },
+                { "string": 4, "fret": 0, "midi": 50 },
+                { "string": 3, "fret": 0, "midi": 55 },
+                { "string": 2, "fret": 0, "midi": 59 },
+                { "string": 1, "fret": 0, "midi": 62 }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "m2",
+          "number": 2,
+          "events": [
+            {
+              "id": "e3",
+              "tick": 1920,
+              "durationTicks": 480,
+              "notes": [
+                { "string": 6, "fret": 0, "midi": 38 },
+                { "string": 1, "fret": 0, "midi": 62 }
+              ]
+            },
+            {
+              "id": "e4",
+              "tick": 2400,
+              "durationTicks": 480,
+              "notes": [
+                { "string": 6, "fret": 0, "midi": 38 },
+                { "string": 1, "fret": 0, "midi": 62 }
+              ]
+            },
+            {
+              "id": "e5",
+              "tick": 2880,
+              "durationTicks": 480,
+              "notes": [
+                { "string": 6, "fret": 0, "midi": 38 },
+                { "string": 1, "fret": 0, "midi": 62 }
+              ]
+            },
+            {
+              "id": "e6",
+              "tick": 3360,
+              "durationTicks": 480,
+              "notes": [
+                { "string": 6, "fret": 0, "midi": 38 },
+                { "string": 1, "fret": 0, "midi": 62 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verse",
+      "name": "Blues Scale Run",
+      "startTick": 3840,
+      "measures": [
+        {
+          "id": "m3",
+          "number": 3,
+          "events": [
+            {
+              "id": "e7",
+              "tick": 3840,
+              "durationTicks": 480,
+              "notes": [{ "string": 6, "fret": 0, "midi": 38 }]
+            },
+            {
+              "id": "e8",
+              "tick": 4320,
+              "durationTicks": 480,
+              "notes": [{ "string": 6, "fret": 3, "midi": 41 }]
+            },
+            {
+              "id": "e9",
+              "tick": 4800,
+              "durationTicks": 480,
+              "notes": [{ "string": 5, "fret": 0, "midi": 43 }]
+            },
+            {
+              "id": "e10",
+              "tick": 5280,
+              "durationTicks": 480,
+              "notes": [{ "string": 5, "fret": 1, "midi": 44 }]
+            }
+          ]
+        },
+        {
+          "id": "m4",
+          "number": 4,
+          "events": [
+            {
+              "id": "e11",
+              "tick": 5760,
+              "durationTicks": 480,
+              "notes": [{ "string": 5, "fret": 2, "midi": 45 }]
+            },
+            {
+              "id": "e12",
+              "tick": 6240,
+              "durationTicks": 480,
+              "notes": [{ "string": 4, "fret": 0, "midi": 50 }]
+            },
+            {
+              "id": "e13",
+              "tick": 6720,
+              "durationTicks": 480,
+              "notes": [{ "string": 3, "fret": 0, "midi": 55 }]
+            },
+            {
+              "id": "e14",
+              "tick": 7200,
+              "durationTicks": 480,
+              "notes": [{ "string": 2, "fret": 0, "midi": 59 }]
+            }
+          ]
+        },
+        {
+          "id": "m5",
+          "number": 5,
+          "events": [
+            {
+              "id": "e15",
+              "tick": 7680,
+              "durationTicks": 480,
+              "notes": [{ "string": 1, "fret": 0, "midi": 62 }]
+            },
+            {
+              "id": "e16",
+              "tick": 8160,
+              "durationTicks": 480,
+              "notes": [{ "string": 1, "fret": 3, "midi": 65 }]
+            },
+            {
+              "id": "e17",
+              "tick": 8640,
+              "durationTicks": 480,
+              "notes": [{ "string": 1, "fret": 5, "midi": 67 }]
+            },
+            {
+              "id": "e18",
+              "tick": 9120,
+              "durationTicks": 480,
+              "notes": [{ "string": 1, "fret": 3, "midi": 65 }]
+            }
+          ]
+        },
+        {
+          "id": "m6",
+          "number": 6,
+          "events": [
+            {
+              "id": "e19",
+              "tick": 9600,
+              "durationTicks": 480,
+              "notes": [{ "string": 1, "fret": 0, "midi": 62 }]
+            },
+            {
+              "id": "e20",
+              "tick": 10080,
+              "durationTicks": 480,
+              "notes": [{ "string": 2, "fret": 0, "midi": 59 }]
+            },
+            {
+              "id": "e21",
+              "tick": 10560,
+              "durationTicks": 480,
+              "notes": [{ "string": 3, "fret": 0, "midi": 55 }]
+            },
+            {
+              "id": "e22",
+              "tick": 11040,
+              "durationTicks": 480,
+              "notes": [{ "string": 4, "fret": 0, "midi": 50 }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "outro",
+      "name": "Outro - Final G",
+      "startTick": 11520,
+      "measures": [
+        {
+          "id": "m7",
+          "number": 7,
+          "events": [
+            {
+              "id": "e23",
+              "tick": 11520,
+              "durationTicks": 1920,
+              "notes": [
+                { "string": 6, "fret": 0, "midi": 38 },
+                { "string": 5, "fret": 0, "midi": 43 },
+                { "string": 4, "fret": 0, "midi": 50 },
+                { "string": 3, "fret": 0, "midi": 55 },
+                { "string": 2, "fret": 0, "midi": 59 },
+                { "string": 1, "fret": 0, "midi": 62 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

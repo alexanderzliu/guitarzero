@@ -29,11 +29,13 @@ A web-based guitar training application that provides real-time feedback as you 
 - **Pause/resume** during both countdown and playback
 - **Keyboard shortcuts** (Space = play/pause, Escape = exit)
 
-### Phase 4: Scoring Engine (Planned)
-- Compare detected pitch to expected notes in real-time
-- Timing tolerance windows (perfect/good/ok/miss)
-- Visual hit/miss feedback on the highway
-- Score tracking with streak counter
+### Phase 4: Scoring Engine ✅
+- **Real-time hit detection** using onset events + pitch matching
+- **Timing tolerance windows**: perfect (±50ms), good (±100ms), ok (±200ms)
+- **Pitch tolerance** of ±1 semitone for matching
+- **Visual feedback** with color-coded notes (cyan/green/yellow/red glow)
+- **Score tracking** with points (100/75/50/0) and streak multipliers (1x→4x)
+- **Header display** showing score, streak, and accuracy percentage
 
 ### Phase 5: Session Recording & Analytics (Planned)
 - Record play events for post-session review
@@ -95,6 +97,10 @@ src/
 │   │   └── yinDetector.ts     # YIN pitch detection
 │   ├── rendering/
 │   │   └── highwayRenderer.ts # Canvas drawing functions
+│   ├── scoring/
+│   │   ├── hitDetection.ts    # Pitch matching, timing classification
+│   │   ├── scoreCalculator.ts # Points, streak, accuracy
+│   │   └── index.ts           # Barrel export
 │   ├── storage/
 │   │   ├── calibrationStorage.ts  # Calibration persistence
 │   │   └── tabStorage.ts          # Tab CRUD operations
@@ -154,8 +160,9 @@ src/
 - [x] Phase 3: Highway visualization with scrolling notes
 - [x] Phase 3: Speed control and look-ahead settings
 - [x] Phase 3: Countdown with metronome
-- [ ] Phase 4: Hit detection comparing played vs expected notes
-- [ ] Phase 4: Scoring system with timing tolerance
+- [x] Phase 4: Hit detection comparing played vs expected notes
+- [x] Phase 4: Scoring system with timing tolerance
+- [x] Phase 4: Visual feedback and score display
 - [ ] Phase 5: Session recording and results
 - [ ] Phase 6: Practice mode with section looping
 - [ ] Phase 6: Visual polish and additional settings

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { Tab, GameState } from '../types';
+import type { Tab, GameState, ScoreResult, MidiNote } from '../types';
 import { useAudioInput } from './useAudioInput';
 import {
   prepareRenderNotes,
@@ -8,6 +8,15 @@ import {
   getBpmAtTick,
   type RenderNote,
 } from '../lib/tabs/tempoUtils';
+import {
+  findMatchingNotes,
+  findMissedNotes,
+  getNoteKey,
+  applyHitResult,
+  DEFAULT_TIMING_TOLERANCES,
+  INITIAL_SCORE_STATE,
+  type ScoreState,
+} from '../lib/scoring';
 
 // ============================================================================
 // Game Engine Hook - State Machine for Tab Playback
@@ -32,6 +41,9 @@ export interface GameEngineState {
   lookAheadSec: number;
   visibleNotes: RenderNote[];
   duration: number; // Total song duration in seconds
+  // Scoring state
+  scoreState: ScoreState;
+  lastHitResult: ScoreResult | null; // For UI feedback
 }
 
 export interface UseGameEngineReturn extends GameEngineState {
@@ -50,6 +62,9 @@ export interface UseGameEngineReturn extends GameEngineState {
   isAudioRunning: boolean;
   startAudio: () => Promise<void>;
   getCurrentTime: () => number;
+
+  // Current audio detection (for debug display)
+  currentPitch: { midi: MidiNote | null; clarity: number } | null;
 }
 
 export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
@@ -72,6 +87,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     lookAheadSec: initialLookAhead,
     visibleNotes: [],
     duration: tabDuration,
+    scoreState: INITIAL_SCORE_STATE,
+    lastHitResult: null,
   }));
 
   // Refs for RAF loop (avoid stale closures)
@@ -81,6 +98,12 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const speedRef = useRef<number>(initialSpeed);
   const lookAheadRef = useRef<number>(initialLookAhead);
   const rafIdRef = useRef<number>(0);
+
+  // Scoring refs (mutable during RAF loop)
+  const scoreStateRef = useRef<ScoreState>(INITIAL_SCORE_STATE);
+  const hitNotesRef = useRef<Set<string>>(new Set()); // Track which notes have been scored
+  const noteResultsRef = useRef<Map<string, ScoreResult>>(new Map()); // Store results for rendering
+  const lastOnsetRef = useRef<{ timestampSec: number; rmsDb: number } | null>(null);
 
   // Refs for memoized values (to use in RAF loop)
   const allNotesRef = useRef(allNotes);
@@ -155,23 +178,84 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
           gameState: 'finished',
           currentTimeSec: duration,
           visibleNotes: [],
+          scoreState: scoreStateRef.current,
         }));
         return; // Stop the loop
       }
 
-      // Get visible notes
+      // ===== Hit Detection =====
+      let lastHitResult: ScoreResult | null = null;
+
+      // Check for onset events (note attacks)
+      const currentOnset = audioInputRef.current.lastOnset;
+      if (currentOnset && currentOnset !== lastOnsetRef.current) {
+        lastOnsetRef.current = currentOnset;
+
+        // Get current pitch at onset time
+        const currentPitch = audioInputRef.current.currentPitch;
+        const detectedMidi = currentPitch?.midi ?? null;
+
+        if (detectedMidi !== null) {
+          // Find notes that haven't been hit yet
+          const pendingNotes = allNotesRef.current.filter(
+            (n) => !hitNotesRef.current.has(getNoteKey(n))
+          );
+
+          // Find matching notes
+          const matches = findMatchingNotes(
+            detectedMidi,
+            songTime,
+            pendingNotes,
+            DEFAULT_TIMING_TOLERANCES
+          );
+
+          // Process matches (best match first based on timing)
+          for (const match of matches) {
+            const noteKey = getNoteKey(match.note);
+            if (!hitNotesRef.current.has(noteKey)) {
+              hitNotesRef.current.add(noteKey);
+              noteResultsRef.current.set(noteKey, match.result);
+              scoreStateRef.current = applyHitResult(scoreStateRef.current, match.result);
+              lastHitResult = match.result;
+            }
+          }
+        }
+      }
+
+      // ===== Miss Detection =====
+      // Find notes that have passed the miss threshold
+      const pendingNotes = allNotesRef.current.filter(
+        (n) => !hitNotesRef.current.has(getNoteKey(n))
+      );
+      const missedNotes = findMissedNotes(songTime, pendingNotes, DEFAULT_TIMING_TOLERANCES);
+
+      for (const note of missedNotes) {
+        const noteKey = getNoteKey(note);
+        hitNotesRef.current.add(noteKey);
+        noteResultsRef.current.set(noteKey, 'miss');
+        scoreStateRef.current = applyHitResult(scoreStateRef.current, 'miss');
+        lastHitResult = 'miss';
+      }
+
+      // Get visible notes with hit results applied
       const lookAhead = lookAheadRef.current;
       const visibleNotes = getVisibleNotes(
         allNotesRef.current,
         songTime,
         lookAhead / speed, // Adjust look-ahead by speed
         0.5 // Look behind 0.5s for passed notes
-      );
+      ).map((note) => {
+        const noteKey = getNoteKey(note);
+        const hitResult = noteResultsRef.current.get(noteKey);
+        return hitResult ? { ...note, hitResult } : note;
+      });
 
       setState((s) => ({
         ...s,
         currentTimeSec: songTime,
         visibleNotes,
+        scoreState: scoreStateRef.current,
+        lastHitResult: lastHitResult ?? s.lastHitResult,
       }));
 
       rafIdRef.current = requestAnimationFrame(gameLoop);
@@ -191,6 +275,12 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     gameStateRef.current = 'countdown';
     playStartTimeRef.current = audioInputRef.current.getCurrentTime();
 
+    // Reset scoring state
+    scoreStateRef.current = INITIAL_SCORE_STATE;
+    hitNotesRef.current = new Set();
+    noteResultsRef.current = new Map();
+    lastOnsetRef.current = null;
+
     setState({
       gameState: 'countdown',
       currentTimeSec: 0,
@@ -200,6 +290,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       lookAheadSec: lookAheadRef.current,
       visibleNotes: [],
       duration: tabDurationRef.current,
+      scoreState: INITIAL_SCORE_STATE,
+      lastHitResult: null,
     });
 
     // Start game loop
@@ -255,6 +347,12 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     cancelAnimationFrame(rafIdRef.current);
     gameStateRef.current = 'idle';
 
+    // Reset scoring state
+    scoreStateRef.current = INITIAL_SCORE_STATE;
+    hitNotesRef.current = new Set();
+    noteResultsRef.current = new Map();
+    lastOnsetRef.current = null;
+
     setState({
       gameState: 'idle',
       currentTimeSec: 0,
@@ -264,6 +362,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       lookAheadSec: lookAheadRef.current,
       visibleNotes: [],
       duration: tabDurationRef.current,
+      scoreState: INITIAL_SCORE_STATE,
+      lastHitResult: null,
     });
   }, []);
 
@@ -304,5 +404,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     isAudioRunning: audioInput.isRunning,
     startAudio: audioInput.start,
     getCurrentTime: audioInput.getCurrentTime,
+    currentPitch: audioInput.currentPitch
+      ? { midi: audioInput.currentPitch.midi, clarity: audioInput.currentPitch.clarity }
+      : null,
   };
 }

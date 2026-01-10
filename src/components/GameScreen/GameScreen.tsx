@@ -5,10 +5,30 @@ import { Highway } from '../Highway';
 import { GameControls } from '../GameControls';
 import { playMetronomeClick } from '../../lib/audio/metronome';
 import { getAudioCapture } from '../../lib/audio/audioCapture';
+import { getStreakMultiplier, calculateAccuracy } from '../../lib/scoring';
 
 // ============================================================================
 // Game Screen Component - Main Orchestrator
 // ============================================================================
+
+/**
+ * Get color class for streak display based on multiplier threshold.
+ */
+function getStreakColorClass(streak: number): string {
+  if (streak >= 30) return 'text-yellow-400';
+  if (streak >= 20) return 'text-purple-400';
+  if (streak >= 10) return 'text-cyan-400';
+  return 'text-white';
+}
+
+/**
+ * Streak multiplier badge component.
+ */
+function StreakMultiplierBadge({ streak }: { streak: number }) {
+  const multiplier = getStreakMultiplier(streak);
+  if (multiplier <= 1) return null;
+  return <span className="text-sm ml-1">x{multiplier}</span>;
+}
 
 interface GameScreenProps {
   tab: Tab;
@@ -94,6 +114,35 @@ export function GameScreen({ tab, onExit }: GameScreenProps) {
             <h1 className="text-xl font-bold text-white">{tab.title}</h1>
             <p className="text-slate-400 text-sm">{tab.artist || 'Unknown Artist'}</p>
           </div>
+
+          {/* Score Display */}
+          <div className="flex items-center gap-6">
+            {/* Score */}
+            <div className="text-right">
+              <div className="text-2xl font-bold text-white tabular-nums">
+                {engine.scoreState.score.toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-500 uppercase tracking-wide">Score</div>
+            </div>
+
+            {/* Streak */}
+            <div className="text-right">
+              <div className={`text-xl font-bold tabular-nums ${getStreakColorClass(engine.scoreState.streak)}`}>
+                {engine.scoreState.streak}
+                <StreakMultiplierBadge streak={engine.scoreState.streak} />
+              </div>
+              <div className="text-xs text-slate-500 uppercase tracking-wide">Streak</div>
+            </div>
+
+            {/* Accuracy */}
+            <div className="text-right">
+              <div className="text-xl font-bold text-white tabular-nums">
+                {calculateAccuracy(engine.scoreState)}%
+              </div>
+              <div className="text-xs text-slate-500 uppercase tracking-wide">Accuracy</div>
+            </div>
+          </div>
+
           <div className="flex items-center gap-4">
             <span className="text-slate-500 text-sm">
               {tab.tempoMap[0]?.bpm || '?'} BPM

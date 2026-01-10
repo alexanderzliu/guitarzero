@@ -1,5 +1,5 @@
 import type { RenderNote } from '../tabs/tempoUtils';
-import type { GameState } from '../../types';
+import type { GameState, ScoreResult } from '../../types';
 
 // ============================================================================
 // Highway Renderer - Pure Canvas Drawing Functions
@@ -29,6 +29,26 @@ export const STRING_COLORS_DIM = [
   '#5b21b6', // String 5 dim
   '#991b1b', // String 6 dim
 ];
+
+/**
+ * Colors for hit results (applied as glow/border).
+ */
+export const HIT_RESULT_COLORS: Record<ScoreResult, string> = {
+  perfect: '#22d3ee', // cyan-400 - bright flash
+  good: '#4ade80', // green-400
+  ok: '#facc15', // yellow-400
+  miss: '#f87171', // red-400
+};
+
+/**
+ * Background colors for hit results.
+ */
+export const HIT_RESULT_BG_COLORS: Record<ScoreResult, string> = {
+  perfect: '#0891b2', // cyan-600
+  good: '#16a34a', // green-600
+  ok: '#ca8a04', // yellow-600
+  miss: '#dc2626', // red-600
+};
 
 /**
  * Configuration for highway rendering.
@@ -196,6 +216,58 @@ function drawHitZone(rc: RenderContext): void {
 }
 
 /**
+ * Style properties for rendering a note.
+ */
+interface NoteStyle {
+  fillColor: string;
+  borderColor: string;
+  borderWidth: number;
+  textColor: string;
+  glowColor: string | null;
+}
+
+/**
+ * Determine note style based on its state (hit result, passed, or upcoming).
+ */
+function getNoteStyle(
+  note: RenderNote,
+  isPassed: boolean
+): NoteStyle {
+  const colorIdx = note.string - 1;
+
+  if (note.hitResult) {
+    // Note has been scored - use hit result colors
+    return {
+      fillColor: HIT_RESULT_BG_COLORS[note.hitResult],
+      borderColor: HIT_RESULT_COLORS[note.hitResult],
+      borderWidth: note.hitResult === 'miss' ? 2 : 3,
+      textColor: '#ffffff',
+      glowColor: note.hitResult !== 'miss' ? HIT_RESULT_COLORS[note.hitResult] : null,
+    };
+  }
+
+  if (isPassed) {
+    // Passed without being scored (shouldn't happen often)
+    return {
+      fillColor: STRING_COLORS_DIM[colorIdx],
+      borderColor: '#475569',
+      borderWidth: 1,
+      textColor: '#64748b',
+      glowColor: null,
+    };
+  }
+
+  // Normal upcoming note
+  return {
+    fillColor: STRING_COLORS[colorIdx],
+    borderColor: '#ffffff',
+    borderWidth: 2,
+    textColor: '#ffffff',
+    glowColor: null,
+  };
+}
+
+/**
  * Draw a single note.
  */
 function drawNote(
@@ -206,10 +278,7 @@ function drawNote(
 ): void {
   const { ctx, height, config } = rc;
   const y = getStringY(note.string, height, config.stringPadding);
-
-  // Get color based on string
-  const colorIdx = note.string - 1;
-  const color = isPassed ? STRING_COLORS_DIM[colorIdx] : STRING_COLORS[colorIdx];
+  const { fillColor, borderColor, borderWidth, textColor, glowColor } = getNoteStyle(note, isPassed);
 
   // Note dimensions
   const noteW = config.noteWidth;
@@ -218,33 +287,54 @@ function drawNote(
   const noteY = y - noteH / 2;
   const radius = 6;
 
+  // Apply glow effect for hit notes
+  if (glowColor) {
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 15;
+  }
+
   // Draw rounded rectangle
-  ctx.fillStyle = color;
+  ctx.fillStyle = fillColor;
   ctx.beginPath();
   ctx.roundRect(noteX, noteY, noteW, noteH, radius);
   ctx.fill();
 
   // Draw border
-  ctx.strokeStyle = isPassed ? '#475569' : '#ffffff';
-  ctx.lineWidth = isPassed ? 1 : 2;
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = borderWidth;
   ctx.stroke();
+
+  // Reset shadow
+  if (glowColor) {
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+  }
 
   // Draw fret number
   if (config.showFretNumbers) {
-    ctx.fillStyle = isPassed ? '#64748b' : '#ffffff';
+    ctx.fillStyle = textColor;
     ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(note.fret.toString(), x, y);
   }
 
-  // Draw technique indicator (small badge)
-  if (note.technique && !isPassed) {
+  // Draw technique indicator (small badge) for non-hit notes
+  if (note.technique && !isPassed && !note.hitResult) {
     const techLabel = getTechniqueLabel(note.technique);
     ctx.fillStyle = '#c084fc'; // purple-400
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(techLabel, x, noteY - 4);
+  }
+
+  // Draw hit result label for scored notes
+  if (note.hitResult) {
+    const resultLabel = note.hitResult.toUpperCase();
+    ctx.fillStyle = HIT_RESULT_COLORS[note.hitResult];
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(resultLabel, x, noteY - 6);
   }
 }
 
