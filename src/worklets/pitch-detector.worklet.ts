@@ -4,6 +4,19 @@
  *
  * This file is loaded separately as a worklet module.
  * It includes inline implementations since worklets can't import from main bundle.
+ *
+ * DUPLICATION NOTICE
+ * ==================
+ * AudioWorklets run in a separate thread and cannot import from the main bundle.
+ * This file contains duplicated implementations of:
+ *
+ * - RingBuffer       → sync with: src/lib/audio/ringBuffer.ts
+ * - YinDetector      → sync with: src/lib/audio/yinDetector.ts
+ * - calculateRms     → sync with: src/lib/audio/onsetDetector.ts
+ * - linearToDb       → sync with: src/lib/audio/onsetDetector.ts
+ * - hzToMidi         → sync with: src/lib/audio/midiUtils.ts
+ *
+ * WHEN MODIFYING: Update both locations to keep implementations in sync.
  */
 
 // ============================================================================

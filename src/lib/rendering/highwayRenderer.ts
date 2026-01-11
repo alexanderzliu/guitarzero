@@ -75,6 +75,8 @@ export const DEFAULT_HIGHWAY_CONFIG: HighwayConfig = {
   stringLineColor: '#334155', // slate-700
 };
 
+const NOTE_PASSED_THRESHOLD_SEC = 0.1; // Time after hit zone to consider note "passed"
+
 /**
  * Context passed to render functions.
  */
@@ -113,7 +115,10 @@ export function setupCanvas(
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
 
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', {
+    alpha: false,        // No transparency needed - faster compositing
+    desynchronized: true // Reduce latency on supported browsers
+  });
   if (!ctx) {
     throw new Error('Failed to get 2D canvas context');
   }
@@ -373,7 +378,7 @@ function drawNotes(rc: RenderContext, state: RenderFrameState): void {
     // Skip notes that are too far off screen
     if (x < -config.noteWidth || x > width + config.noteWidth) continue;
 
-    const isPassed = note.timeSec < state.currentTimeSec - 0.1;
+    const isPassed = note.timeSec < state.currentTimeSec - NOTE_PASSED_THRESHOLD_SEC;
     drawNote(rc, note, x, isPassed);
   }
 }

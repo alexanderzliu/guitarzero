@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Tab } from '../../types';
 import { midiToNoteName } from '../../lib/audio/midiUtils';
+import { getTotalNotes, getTotalMeasures } from '../../lib/tabs/tabUtils';
 
 interface TabPreviewProps {
   tab: Tab;
@@ -10,20 +11,8 @@ interface TabPreviewProps {
 }
 
 export function TabPreview({ tab, onClose, onDelete, onPlay }: TabPreviewProps) {
-  const totalNotes = tab.sections.reduce(
-    (sum, section) =>
-      sum + section.measures.reduce(
-        (mSum, measure) =>
-          mSum + measure.events.reduce((eSum, event) => eSum + event.notes.length, 0),
-        0
-      ),
-    0
-  );
-
-  const totalMeasures = tab.sections.reduce(
-    (sum, section) => sum + section.measures.length,
-    0
-  );
+  const totalNotes = getTotalNotes(tab);
+  const totalMeasures = getTotalMeasures(tab);
 
   // Get tuning note names
   const tuningNames = tab.tuning.map((midi) => midiToNoteName(midi));

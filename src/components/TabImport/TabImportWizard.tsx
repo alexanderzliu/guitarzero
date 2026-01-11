@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Tab } from '../../types';
 import { parseAndValidateTab, type ValidationError } from '../../lib/tabs/tabValidator';
 import { saveTab, generateTabId, StorageQuotaError } from '../../lib/storage/tabStorage';
+import { getTotalNotes, getTotalMeasures } from '../../lib/tabs/tabUtils';
 
 interface TabImportWizardProps {
   onComplete: (tab: Tab) => void;
@@ -209,20 +210,8 @@ interface PreviewPhaseProps {
 }
 
 function PreviewPhase({ tab, onSave, onBack }: PreviewPhaseProps) {
-  const totalNotes = tab.sections.reduce(
-    (sum, section) =>
-      sum + section.measures.reduce(
-        (mSum, measure) =>
-          mSum + measure.events.reduce((eSum, event) => eSum + event.notes.length, 0),
-        0
-      ),
-    0
-  );
-
-  const totalMeasures = tab.sections.reduce(
-    (sum, section) => sum + section.measures.length,
-    0
-  );
+  const totalNotes = getTotalNotes(tab);
+  const totalMeasures = getTotalMeasures(tab);
 
   return (
     <div className="space-y-6">

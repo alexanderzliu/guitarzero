@@ -13,6 +13,7 @@ export function midiToHz(midi: MidiNote): number {
 
 /**
  * Convert frequency in Hz to MIDI note number (continuous, not rounded)
+ * SYNC: Duplicated in src/worklets/pitch-detector.worklet.ts - keep both in sync
  */
 export function hzToMidi(hz: number): number {
   if (hz <= 0) return 0;
@@ -52,24 +53,6 @@ export function hzToNoteName(hz: number): string {
   return midiToNoteName(hzToMidiRounded(hz));
 }
 
-/**
- * Check if two frequencies are within tolerance (in cents)
- * Default tolerance: 50 cents (half semitone)
- */
-export function frequenciesMatch(hz1: number, hz2: number, toleranceCents = 50): boolean {
-  if (hz1 <= 0 || hz2 <= 0) return false;
-  const cents = Math.abs(1200 * Math.log2(hz1 / hz2));
-  return cents <= toleranceCents;
-}
-
-/**
- * Check if detected MIDI matches expected MIDI within tolerance
- */
-export function midiMatches(detected: MidiNote, expected: MidiNote, toleranceCents = 50): boolean {
-  const detectedHz = midiToHz(detected);
-  const expectedHz = midiToHz(expected);
-  return frequenciesMatch(detectedHz, expectedHz, toleranceCents);
-}
 
 /**
  * Get guitar string and fret for a MIDI note given a tuning

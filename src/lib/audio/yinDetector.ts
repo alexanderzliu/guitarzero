@@ -4,6 +4,8 @@
  * by Alain de Cheveigné and Hideki Kawahara
  *
  * This implementation is designed to run in an AudioWorklet
+ *
+ * SYNC: Duplicated in src/worklets/pitch-detector.worklet.ts - keep both in sync
  */
 
 export interface YinResult {

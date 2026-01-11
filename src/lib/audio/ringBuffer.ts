@@ -1,6 +1,8 @@
 /**
  * Ring buffer for accumulating audio samples in the AudioWorklet
  * Supports overlapping frame analysis with configurable window and hop sizes
+ *
+ * SYNC: Duplicated in src/worklets/pitch-detector.worklet.ts - keep both in sync
  */
 export class RingBuffer {
   private buffer: Float32Array;
