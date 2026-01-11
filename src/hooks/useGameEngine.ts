@@ -25,6 +25,11 @@ import {
 const DEFAULT_LOOK_AHEAD_SEC = 4;
 const DEFAULT_SPEED = 1.0;
 const COUNTDOWN_BEATS = 4; // 4 beat count-in
+const LOOK_BEHIND_SEC = 0.5; // Time window to show passed notes
+const MIN_SPEED = 0.25;
+const MAX_SPEED = 2.0;
+const MIN_LOOK_AHEAD_SEC = 2;
+const MAX_LOOK_AHEAD_SEC = 8;
 
 export interface GameEngineConfig {
   tab: Tab;
@@ -243,7 +248,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
         allNotesRef.current,
         songTime,
         lookAhead / speed, // Adjust look-ahead by speed
-        0.5 // Look behind 0.5s for passed notes
+        LOOK_BEHIND_SEC
       ).map((note) => {
         const noteKey = getNoteKey(note);
         const hitResult = noteResultsRef.current.get(noteKey);
@@ -371,7 +376,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
    * Set playback speed
    */
   const setSpeed = useCallback((speed: number) => {
-    const clampedSpeed = Math.max(0.25, Math.min(2.0, speed));
+    const clampedSpeed = Math.max(MIN_SPEED, Math.min(MAX_SPEED, speed));
     speedRef.current = clampedSpeed;
     setState((s) => ({ ...s, speed: clampedSpeed }));
   }, []);
@@ -380,7 +385,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
    * Set look-ahead time
    */
   const setLookAhead = useCallback((sec: number) => {
-    const clampedSec = Math.max(2, Math.min(8, sec));
+    const clampedSec = Math.max(MIN_LOOK_AHEAD_SEC, Math.min(MAX_LOOK_AHEAD_SEC, sec));
     lookAheadRef.current = clampedSec;
     setState((s) => ({ ...s, lookAheadSec: clampedSec }));
   }, []);

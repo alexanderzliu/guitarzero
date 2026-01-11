@@ -80,6 +80,7 @@ export class OnsetDetector {
 
 /**
  * Calculate RMS (Root Mean Square) of audio buffer
+ * SYNC: Duplicated in src/worklets/pitch-detector.worklet.ts - keep both in sync
  */
 export function calculateRms(buffer: Float32Array): number {
   let sum = 0;
@@ -91,27 +92,10 @@ export function calculateRms(buffer: Float32Array): number {
 
 /**
  * Convert linear amplitude to decibels
+ * SYNC: Duplicated in src/worklets/pitch-detector.worklet.ts - keep both in sync
  */
 export function linearToDb(linear: number): number {
   if (linear <= 0) return -Infinity;
   return 20 * Math.log10(linear);
 }
 
-/**
- * Convert decibels to linear amplitude
- */
-export function dbToLinear(db: number): number {
-  return Math.pow(10, db / 20);
-}
-
-/**
- * Calculate peak amplitude in dB
- */
-export function calculatePeakDb(buffer: Float32Array): number {
-  let peak = 0;
-  for (let i = 0; i < buffer.length; i++) {
-    const abs = Math.abs(buffer[i]);
-    if (abs > peak) peak = abs;
-  }
-  return linearToDb(peak);
-}

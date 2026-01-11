@@ -10,6 +10,7 @@ const CALIBRATION_BPM = 90;
 const BEAT_INTERVAL_SEC = 60 / CALIBRATION_BPM; // ~0.667 seconds
 const REQUIRED_SAMPLES = 8;
 const COUNTDOWN_BEATS = 3;
+const ONSET_MATCH_WINDOW_SEC = 0.4; // Tolerance for matching onset to expected beat
 
 export type CalibrationPhase =
   | 'idle'
@@ -104,9 +105,8 @@ export function useCalibration(): UseCalibrationReturn {
     lastProcessedOnsetRef.current = onset.timestampSec;
 
     // Only accept onsets that are reasonably close to an expected beat
-    // (within 400ms window around any expected beat)
     const isNearExpectedBeat = expectedBeatTimesRef.current.some(
-      (expectedTime) => Math.abs(onset.timestampSec - expectedTime) < 0.4
+      (expectedTime) => Math.abs(onset.timestampSec - expectedTime) < ONSET_MATCH_WINDOW_SEC
     );
 
     if (isNearExpectedBeat && detectedOnsetsRef.current.length < REQUIRED_SAMPLES) {
