@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { Tab } from '../../types';
 import { midiToNoteName } from '../../lib/audio/midiUtils';
 import { getTotalNotes, getTotalMeasures } from '../../lib/tabs/tabUtils';
+import { useSessionHistory } from '../../hooks/useSessionHistory';
+import { SessionHistory } from './SessionHistory';
 
 interface TabPreviewProps {
   tab: Tab;
@@ -16,6 +18,9 @@ export function TabPreview({ tab, onClose, onDelete, onPlay }: TabPreviewProps) 
 
   // Get tuning note names
   const tuningNames = tab.tuning.map((midi) => midiToNoteName(midi));
+
+  // Session history for this tab
+  const sessionHistory = useSessionHistory(tab.id);
 
   return (
     <div className="min-h-screen bg-slate-900 p-8">
@@ -84,6 +89,14 @@ export function TabPreview({ tab, onClose, onDelete, onPlay }: TabPreviewProps) 
             </div>
           </div>
         )}
+
+        {/* Session History */}
+        <SessionHistory
+          sessions={sessionHistory.sessions}
+          stats={sessionHistory.stats}
+          isLoading={sessionHistory.isLoading}
+          onDeleteSession={sessionHistory.deleteSession}
+        />
 
         {/* Action Buttons */}
         <div className="flex gap-4">

@@ -17,6 +17,7 @@ import {
   INITIAL_SCORE_STATE,
   type ScoreState,
 } from '../lib/scoring';
+import { createHitEvent, createMissEvent, type PlayEventRecord } from '../lib/session';
 
 // ============================================================================
 // Game Engine Hook - State Machine for Tab Playback
@@ -35,6 +36,8 @@ export interface GameEngineConfig {
   tab: Tab;
   initialSpeed?: number;
   initialLookAhead?: number;
+  /** Callback fired for each play event (hit or miss) during gameplay */
+  onPlayEvent?: (event: PlayEventRecord) => void;
 }
 
 export interface GameEngineState {
@@ -73,7 +76,7 @@ export interface UseGameEngineReturn extends GameEngineState {
 }
 
 export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
-  const { tab, initialSpeed = DEFAULT_SPEED, initialLookAhead = DEFAULT_LOOK_AHEAD_SEC } = config;
+  const { tab, initialSpeed = DEFAULT_SPEED, initialLookAhead = DEFAULT_LOOK_AHEAD_SEC, onPlayEvent } = config;
 
   // Audio input for timing
   const audioInput = useAudioInput();
@@ -129,6 +132,12 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   useEffect(() => {
     audioInputRef.current = audioInput;
   }, [audioInput]);
+
+  // Callback ref for play events (to avoid stale closure in RAF loop)
+  const onPlayEventRef = useRef(onPlayEvent);
+  useEffect(() => {
+    onPlayEventRef.current = onPlayEvent;
+  }, [onPlayEvent]);
 
   /**
    * Main game loop - runs via requestAnimationFrame
@@ -222,6 +231,13 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
               noteResultsRef.current.set(noteKey, match.result);
               scoreStateRef.current = applyHitResult(scoreStateRef.current, match.result);
               lastHitResult = match.result;
+
+              // Emit play event for session recording
+              if (onPlayEventRef.current) {
+                onPlayEventRef.current(
+                  createHitEvent(match.note, match.result, match.offsetMs, detectedMidi, songTime)
+                );
+              }
             }
           }
         }
@@ -240,6 +256,11 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
         noteResultsRef.current.set(noteKey, 'miss');
         scoreStateRef.current = applyHitResult(scoreStateRef.current, 'miss');
         lastHitResult = 'miss';
+
+        // Emit play event for session recording
+        if (onPlayEventRef.current) {
+          onPlayEventRef.current(createMissEvent(note, songTime));
+        }
       }
 
       // Get visible notes with hit results applied

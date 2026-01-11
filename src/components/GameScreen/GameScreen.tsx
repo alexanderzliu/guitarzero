@@ -1,11 +1,14 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import type { Tab } from '../../types';
 import { useGameEngine } from '../../hooks/useGameEngine';
+import { useSessionRecorder } from '../../hooks/useSessionRecorder';
 import { Highway } from '../Highway';
 import { GameControls } from '../GameControls';
+import { SessionResults } from './SessionResults';
 import { playMetronomeClick } from '../../lib/audio/metronome';
 import { getAudioCapture } from '../../lib/audio/audioCapture';
 import { getStreakMultiplier, calculateAccuracy } from '../../lib/scoring';
+import type { SessionRecord } from '../../lib/session';
 
 // ============================================================================
 // Game Screen Component - Main Orchestrator
@@ -36,10 +39,36 @@ interface GameScreenProps {
 }
 
 export function GameScreen({ tab, onExit }: GameScreenProps) {
-  const engine = useGameEngine({ tab });
+  const [completedSession, setCompletedSession] = useState<SessionRecord | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+
+  // Session recording (needs speed for the session record)
+  const recorder = useSessionRecorder(tab, playbackSpeed);
+
+  // Game engine with event emission
+  const engine = useGameEngine({
+    tab,
+    onPlayEvent: recorder.recordEvent,
+  });
 
   // Track last countdown value to trigger metronome
   const lastCountdownRef = useRef<number>(0);
+
+  // Sync playback speed for session recording
+  useEffect(() => {
+    setPlaybackSpeed(engine.speed);
+  }, [engine.speed]);
+
+  // Save session when game finishes naturally
+  useEffect(() => {
+    if (engine.gameState === 'finished' && !completedSession) {
+      recorder.finishSession(engine.scoreState).then((session) => {
+        if (session) {
+          setCompletedSession(session);
+        }
+      });
+    }
+  }, [engine.gameState, engine.scoreState, recorder, completedSession]);
 
   // Play metronome on countdown beats
   useEffect(() => {
@@ -84,6 +113,7 @@ export function GameScreen({ tab, onExit }: GameScreenProps) {
 
         case 'Escape':
           e.preventDefault();
+          recorder.discardSession(); // Discard incomplete session
           engine.stop();
           onExit();
           break;
@@ -104,6 +134,21 @@ export function GameScreen({ tab, onExit }: GameScreenProps) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
+
+  // Handler for "Play Again" from results screen
+  const handlePlayAgain = useCallback(() => {
+    setCompletedSession(null);
+    recorder.discardSession(); // Clear recorder state for new session
+    engine.stop();
+    engine.start();
+  }, [recorder, engine]);
+
+  // Handler for exit from results screen
+  const handleResultsExit = useCallback(() => {
+    setCompletedSession(null);
+    engine.stop();
+    onExit();
+  }, [engine, onExit]);
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col">
@@ -191,6 +236,15 @@ export function GameScreen({ tab, onExit }: GameScreenProps) {
           onExit={onExit}
         />
       </div>
+
+      {/* Session Results Overlay */}
+      {completedSession && (
+        <SessionResults
+          session={completedSession}
+          onPlayAgain={handlePlayAgain}
+          onExit={handleResultsExit}
+        />
+      )}
     </div>
   );
 }
