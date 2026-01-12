@@ -518,3 +518,147 @@ package.json                        # Added dexie dependency
 5. Click "Back to Tab" to see session in history
 6. Play again to see progress tracking
 7. Check DevTools > Application > IndexedDB > "guitar-hero-sessions" to verify storage
+
+---
+
+## Session 4: Phase 6 Implementation - Practice Mode & Visual Polish
+
+### Date: January 12, 2026
+
+### Overview
+Implemented practice mode with section looping and visual hit animations. Users can now select any section from a dropdown to loop continuously, with scores resetting each iteration. Notes now pulse/scale on successful hits for satisfying visual feedback.
+
+---
+
+## Completed Work
+
+### 1. New Types (`src/types/index.ts`)
+
+#### `LoopConfig`
+Configuration for practice mode section looping:
+- `sectionId` - ID of the section being looped
+- `sectionName` - Display name for UI
+- `startSec` / `endSec` - Time boundaries in seconds
+
+### 2. Tempo Utilities (`src/lib/tabs/tempoUtils.ts`)
+
+#### `getSectionTimeBounds()`
+Helper function to calculate section time boundaries:
+- Finds section by ID
+- Returns `{ startSec, endSec }` or `null` if section not found/empty
+- Handles last section by finding max tick from measures
+
+#### `RenderNote.hitTimestampSec`
+New optional field to track when a hit occurred (for animation timing).
+
+### 3. Game Engine (`src/hooks/useGameEngine.ts`)
+
+#### State Additions
+- `loopConfig: LoopConfig | null` - Current loop configuration
+- `loopCount: number` - Number of times loop has repeated
+
+#### Refs for RAF Loop
+- `loopConfigRef` - Avoid stale closure for loop config
+- `loopCountRef` - Track loop iterations
+- `hitTimestampsRef` - Store hit timestamps for animation
+
+#### Loop Detection Logic
+In the game loop, when `songTime >= loopConfig.endSec`:
+1. Reset `playStartTimeRef` to loop start offset
+2. Reset all scoring state (score, hits, results, timestamps)
+3. Increment loop counter
+4. Update React state
+
+#### `setLoopSection()` Callback
+- Takes `sectionId | null` to enable/disable looping
+- Uses `getSectionTimeBounds()` to calculate time bounds
+- Validates section exists and has measures
+
+### 4. Highway Renderer (`src/lib/rendering/highwayRenderer.ts`)
+
+#### Hit Animation
+- `HIT_ANIMATION_DURATION_SEC = 0.2` - 200ms animation duration
+- `getHitAnimationScale()` - Returns scale 1.0 → 1.3 → 1.0 using sine wave
+- Uses explicit `=== undefined` check for `hitTimestampSec` (can be 0 at loop start)
+
+#### `drawNote()` Modifications
+- Accepts `currentTimeSec` parameter
+- Applies scale to note dimensions, border radius, font sizes
+- Enhanced glow during animation (`shadowBlur: 25` vs `15`)
+
+### 5. Game Controls (`src/components/GameControls/GameControls.tsx`)
+
+#### New Props
+- `sections: Array<{ id: string; name: string }>` - Available sections
+- `loopConfig: LoopConfig | null` - Current loop state
+- `loopCount: number` - Current iteration
+- `onLoopSectionChange: (sectionId: string | null) => void` - Callback
+
+#### Section Loop Control UI
+- Dropdown selector with "Full song" default
+- Disabled during countdown/playback
+- Loop counter badge (`Loop #N`) when looping
+
+### 6. Game Screen (`src/components/GameScreen/GameScreen.tsx`)
+
+- Pass new props to `GameControls`
+- Fixed stale closure bug by adding `recorder` to `handleKeyDown` dependencies
+
+---
+
+## Files Modified
+
+```
+src/types/index.ts                           # Added LoopConfig interface
+src/lib/tabs/tempoUtils.ts                   # Added hitTimestampSec, getSectionTimeBounds()
+src/hooks/useGameEngine.ts                   # Loop state, detection, setLoopSection
+src/lib/rendering/highwayRenderer.ts         # Hit animation with sine wave scale
+src/components/GameControls/GameControls.tsx # Section dropdown UI
+src/components/GameScreen/GameScreen.tsx     # Wire new props
+```
+
+---
+
+## Technical Decisions
+
+### Animation Timing
+- **Sine wave interpolation**: Smooth pulse (1.0 → 1.3 → 1.0) over 200ms
+- **Scale applied to all dimensions**: Note width/height, border radius, font sizes
+- **Enhanced glow during animation**: More visible feedback
+
+### Loop Reset
+- **Full scoring reset**: Score, streak, hit notes, results, timestamps all cleared
+- **Proper time offset**: `playStartTimeRef = audioTime - (loopStartSec / speed)`
+- **Loop counter increment**: Visible feedback in UI
+
+### Edge Cases
+- **hitTimestampSec at 0**: Use `=== undefined` instead of falsy check
+- **Empty sections**: Validation in `getSectionTimeBounds()` returns null
+- **Section not found**: Warning logged, no state change
+
+---
+
+## Remaining Work
+
+### Phase 1-6 ✅ COMPLETE
+
+### Future Enhancements
+- [ ] Metronome/click track option
+- [ ] Difficulty adjustment
+- [ ] Additional themes
+- [ ] Mobile-responsive layout
+- [ ] Chroma-based chord detection
+
+---
+
+## How to Test
+
+1. Run the dev server: `npm run dev`
+2. Import a tab with multiple sections
+3. Start audio capture
+4. Select a section from the "Loop" dropdown
+5. Start playback - verify it loops at section end
+6. Verify score/streak reset when loop restarts
+7. Verify loop counter increments
+8. Hit notes and verify pulse/scale animation
+9. Select "Full song" to disable looping
