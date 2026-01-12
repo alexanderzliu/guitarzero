@@ -1,8 +1,8 @@
-import type { GameState } from '../../types';
+import type { GameState, LoopConfig } from '../../types';
 import { formatTime } from '../../lib/tabs/tempoUtils';
 
 // ============================================================================
-// Game Controls Component - Play/Pause, Speed, Look-ahead
+// Game Controls Component - Play/Pause, Speed, Look-ahead, Section Loop
 // ============================================================================
 
 interface GameControlsProps {
@@ -20,6 +20,11 @@ interface GameControlsProps {
   onLookAheadChange: (sec: number) => void;
   onStartAudio: () => void;
   onExit: () => void;
+  // Practice mode section looping
+  sections: Array<{ id: string; name: string }>;
+  loopConfig: LoopConfig | null;
+  loopCount: number;
+  onLoopSectionChange: (sectionId: string | null) => void;
 }
 
 export function GameControls({
@@ -37,6 +42,10 @@ export function GameControls({
   onLookAheadChange,
   onStartAudio,
   onExit,
+  sections,
+  loopConfig,
+  loopCount,
+  onLoopSectionChange,
 }: GameControlsProps) {
   const isPlaying = gameState === 'playing';
   const isPaused = gameState === 'paused';
@@ -162,6 +171,29 @@ export function GameControls({
           />
           <span className="text-slate-300 text-sm w-8">{lookAheadSec}s</span>
         </div>
+
+        {/* Section Loop Control */}
+        {sections.length > 0 && (
+          <div className="flex items-center gap-3">
+            <label className="text-slate-400 text-sm">Loop:</label>
+            <select
+              value={loopConfig?.sectionId || ''}
+              onChange={(e) => onLoopSectionChange(e.target.value || null)}
+              disabled={isPlaying || isCountdown}
+              className="px-2 py-1 bg-slate-700 text-slate-200 text-sm rounded border border-slate-600 disabled:opacity-50"
+            >
+              <option value="">Full song</option>
+              {sections.map((section) => (
+                <option key={section.id} value={section.id}>
+                  {section.name}
+                </option>
+              ))}
+            </select>
+            {loopConfig && loopCount > 0 && (
+              <span className="text-purple-400 text-sm">Loop #{loopCount}</span>
+            )}
+          </div>
+        )}
 
         {/* Current Speed Display */}
         <div className="ml-auto text-slate-500 text-sm">

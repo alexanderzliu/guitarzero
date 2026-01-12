@@ -113,7 +113,7 @@ export function GameScreen({ tab, onExit }: GameScreenProps) {
 
         case 'Escape':
           e.preventDefault();
-          recorder.discardSession(); // Discard incomplete session
+          recorder.discardSession();
           engine.stop();
           onExit();
           break;
@@ -127,7 +127,7 @@ export function GameScreen({ tab, onExit }: GameScreenProps) {
           break;
       }
     },
-    [engine, onExit]
+    [engine, recorder, onExit]
   );
 
   useEffect(() => {
@@ -234,6 +234,10 @@ export function GameScreen({ tab, onExit }: GameScreenProps) {
           onLookAheadChange={engine.setLookAhead}
           onStartAudio={engine.startAudio}
           onExit={onExit}
+          sections={engine.sections}
+          loopConfig={engine.loopConfig}
+          loopCount={engine.loopCount}
+          onLoopSectionChange={engine.setLoopSection}
         />
       </div>
 

@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { Tab, GameState, ScoreResult, MidiNote } from '../types';
+import type { Tab, GameState, ScoreResult, MidiNote, LoopConfig } from '../types';
 import { useAudioInput } from './useAudioInput';
 import {
   prepareRenderNotes,
   getVisibleNotes,
   getTabDuration,
   getBpmAtTick,
+  getSectionTimeBounds,
   type RenderNote,
 } from '../lib/tabs/tempoUtils';
 import {
@@ -52,6 +53,9 @@ export interface GameEngineState {
   // Scoring state
   scoreState: ScoreState;
   lastHitResult: ScoreResult | null; // For UI feedback
+  // Practice mode looping
+  loopConfig: LoopConfig | null;
+  loopCount: number; // How many times we've looped
 }
 
 export interface UseGameEngineReturn extends GameEngineState {
@@ -65,6 +69,10 @@ export interface UseGameEngineReturn extends GameEngineState {
   stop: () => void;
   setSpeed: (speed: number) => void;
   setLookAhead: (sec: number) => void;
+  setLoopSection: (sectionId: string | null) => void;
+
+  // Section info for practice mode UI
+  sections: Array<{ id: string; name: string }>;
 
   // Audio state passthrough
   isAudioRunning: boolean;
@@ -97,6 +105,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     duration: tabDuration,
     scoreState: INITIAL_SCORE_STATE,
     lastHitResult: null,
+    loopConfig: null,
+    loopCount: 0,
   }));
 
   // Refs for RAF loop (avoid stale closures)
@@ -106,11 +116,14 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const speedRef = useRef<number>(initialSpeed);
   const lookAheadRef = useRef<number>(initialLookAhead);
   const rafIdRef = useRef<number>(0);
+  const loopConfigRef = useRef<LoopConfig | null>(null);
+  const loopCountRef = useRef<number>(0);
 
   // Scoring refs (mutable during RAF loop)
   const scoreStateRef = useRef<ScoreState>(INITIAL_SCORE_STATE);
   const hitNotesRef = useRef<Set<string>>(new Set()); // Track which notes have been scored
   const noteResultsRef = useRef<Map<string, ScoreResult>>(new Map()); // Store results for rendering
+  const hitTimestampsRef = useRef<Map<string, number>>(new Map()); // Store hit timestamps for animation
   const lastOnsetRef = useRef<{ timestampSec: number; rmsDb: number } | null>(null);
 
   // Refs for memoized values (to use in RAF loop)
@@ -181,10 +194,39 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     if (gameStateRef.current === 'playing') {
       // Playing phase - advance song time
       const speed = speedRef.current;
-      const songTime = elapsed * speed;
+      const loopConfig = loopConfigRef.current;
+      let songTime = elapsed * speed;
       const duration = tabDurationRef.current;
 
-      // Check for song end
+      // Check for loop end (if looping is enabled)
+      if (loopConfig && songTime >= loopConfig.endSec) {
+        // Reset to loop start
+        const audioTime = audioInputRef.current.getCurrentTime();
+        const loopStartOffset = loopConfig.startSec / speed;
+        playStartTimeRef.current = audioTime - loopStartOffset;
+        songTime = loopConfig.startSec;
+
+        // Reset scoring state for new loop iteration
+        scoreStateRef.current = INITIAL_SCORE_STATE;
+        hitNotesRef.current = new Set();
+        noteResultsRef.current = new Map();
+        hitTimestampsRef.current = new Map();
+        lastOnsetRef.current = null;
+        loopCountRef.current += 1;
+
+        setState((s) => ({
+          ...s,
+          currentTimeSec: songTime,
+          scoreState: INITIAL_SCORE_STATE,
+          loopCount: loopCountRef.current,
+          lastHitResult: null,
+        }));
+
+        rafIdRef.current = requestAnimationFrame(gameLoop);
+        return;
+      }
+
+      // Check for song end (no loop or past loop bounds)
       if (songTime >= duration) {
         gameStateRef.current = 'finished';
         setState((s) => ({
@@ -229,6 +271,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
             if (!hitNotesRef.current.has(noteKey)) {
               hitNotesRef.current.add(noteKey);
               noteResultsRef.current.set(noteKey, match.result);
+              hitTimestampsRef.current.set(noteKey, songTime); // Store hit time for animation
               scoreStateRef.current = applyHitResult(scoreStateRef.current, match.result);
               lastHitResult = match.result;
 
@@ -263,7 +306,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
         }
       }
 
-      // Get visible notes with hit results applied
+      // Get visible notes with hit results and timestamps applied
       const lookAhead = lookAheadRef.current;
       const visibleNotes = getVisibleNotes(
         allNotesRef.current,
@@ -273,7 +316,11 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       ).map((note) => {
         const noteKey = getNoteKey(note);
         const hitResult = noteResultsRef.current.get(noteKey);
-        return hitResult ? { ...note, hitResult } : note;
+        const hitTimestampSec = hitTimestampsRef.current.get(noteKey);
+        if (hitResult) {
+          return { ...note, hitResult, hitTimestampSec };
+        }
+        return note;
       });
 
       setState((s) => ({
@@ -305,11 +352,17 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     scoreStateRef.current = INITIAL_SCORE_STATE;
     hitNotesRef.current = new Set();
     noteResultsRef.current = new Map();
+    hitTimestampsRef.current = new Map();
     lastOnsetRef.current = null;
+    loopCountRef.current = 0;
+
+    // If loop is active, start at loop start time
+    const loopConfig = loopConfigRef.current;
+    const startTime = loopConfig ? loopConfig.startSec : 0;
 
     setState({
       gameState: 'countdown',
-      currentTimeSec: 0,
+      currentTimeSec: startTime,
       countdownValue: COUNTDOWN_BEATS,
       beatActive: false,
       speed: speedRef.current,
@@ -318,6 +371,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       duration: tabDurationRef.current,
       scoreState: INITIAL_SCORE_STATE,
       lastHitResult: null,
+      loopConfig: loopConfigRef.current,
+      loopCount: 0,
     });
 
     // Start game loop
@@ -377,7 +432,9 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     scoreStateRef.current = INITIAL_SCORE_STATE;
     hitNotesRef.current = new Set();
     noteResultsRef.current = new Map();
+    hitTimestampsRef.current = new Map();
     lastOnsetRef.current = null;
+    loopCountRef.current = 0;
 
     setState({
       gameState: 'idle',
@@ -390,6 +447,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       duration: tabDurationRef.current,
       scoreState: INITIAL_SCORE_STATE,
       lastHitResult: null,
+      loopConfig: loopConfigRef.current,
+      loopCount: 0,
     });
   }, []);
 
@@ -411,6 +470,46 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     setState((s) => ({ ...s, lookAheadSec: clampedSec }));
   }, []);
 
+  /**
+   * Set loop section for practice mode.
+   * Pass null to disable looping.
+   */
+  const setLoopSection = useCallback(
+    (sectionId: string | null) => {
+      if (sectionId === null) {
+        loopConfigRef.current = null;
+        loopCountRef.current = 0;
+        setState((s) => ({ ...s, loopConfig: null, loopCount: 0 }));
+        return;
+      }
+
+      const section = tab.sections.find((s) => s.id === sectionId);
+      const bounds = getSectionTimeBounds(tab, sectionId);
+      if (!section || !bounds) {
+        console.warn(`Section not found or empty: ${sectionId}`);
+        return;
+      }
+
+      const newLoopConfig: LoopConfig = {
+        sectionId,
+        sectionName: section.name,
+        startSec: bounds.startSec,
+        endSec: bounds.endSec,
+      };
+
+      loopConfigRef.current = newLoopConfig;
+      loopCountRef.current = 0;
+      setState((s) => ({ ...s, loopConfig: newLoopConfig, loopCount: 0 }));
+    },
+    [tab]
+  );
+
+  // Extract section info for UI
+  const sections = useMemo(
+    () => tab.sections.map((s) => ({ id: s.id, name: s.name })),
+    [tab]
+  );
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -427,6 +526,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     stop,
     setSpeed,
     setLookAhead,
+    setLoopSection,
+    sections,
     isAudioRunning: audioInput.isRunning,
     startAudio: audioInput.start,
     getCurrentTime: audioInput.getCurrentTime,

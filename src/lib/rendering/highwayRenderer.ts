@@ -76,6 +76,7 @@ export const DEFAULT_HIGHWAY_CONFIG: HighwayConfig = {
 };
 
 const NOTE_PASSED_THRESHOLD_SEC = 0.1; // Time after hit zone to consider note "passed"
+const HIT_ANIMATION_DURATION_SEC = 0.2; // Duration of hit pulse animation
 
 /**
  * Context passed to render functions.
@@ -273,29 +274,59 @@ function getNoteStyle(
 }
 
 /**
+ * Calculate animation scale for a hit note.
+ * Returns a scale from 1.0 -> 1.3 -> 1.0 over HIT_ANIMATION_DURATION_SEC.
+ */
+function getHitAnimationScale(
+  note: RenderNote,
+  currentTimeSec: number
+): number {
+  // Skip animation for misses or notes without hit timestamps
+  // Use explicit undefined check since hitTimestampSec can be 0 (valid at loop start)
+  if (!note.hitResult || note.hitResult === 'miss' || note.hitTimestampSec === undefined) {
+    return 1.0;
+  }
+
+  const elapsed = currentTimeSec - note.hitTimestampSec;
+  const isWithinAnimationWindow = elapsed >= 0 && elapsed <= HIT_ANIMATION_DURATION_SEC;
+  if (!isWithinAnimationWindow) {
+    return 1.0;
+  }
+
+  // Sine wave pulse: 0->pi over duration, sin goes 0->1->0
+  const progress = elapsed / HIT_ANIMATION_DURATION_SEC;
+  return 1.0 + Math.sin(progress * Math.PI) * 0.3;
+}
+
+/**
  * Draw a single note.
  */
 function drawNote(
   rc: RenderContext,
   note: RenderNote,
   x: number,
-  isPassed: boolean
+  isPassed: boolean,
+  currentTimeSec: number
 ): void {
   const { ctx, height, config } = rc;
   const y = getStringY(note.string, height, config.stringPadding);
   const { fillColor, borderColor, borderWidth, textColor, glowColor } = getNoteStyle(note, isPassed);
 
-  // Note dimensions
-  const noteW = config.noteWidth;
-  const noteH = config.noteHeight;
+  // Calculate animation scale for hit notes
+  const scale = getHitAnimationScale(note, currentTimeSec);
+  const isAnimating = scale > 1.0;
+
+  // Note dimensions (apply scale for animation)
+  const noteW = config.noteWidth * scale;
+  const noteH = config.noteHeight * scale;
   const noteX = x - noteW / 2;
   const noteY = y - noteH / 2;
-  const radius = 6;
+  const radius = 6 * scale;
 
-  // Apply glow effect for hit notes
+  // Apply glow effect for hit notes (enhanced during animation)
   if (glowColor) {
     ctx.shadowColor = glowColor;
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = isAnimating ? 25 : 15;
   }
 
   // Draw rounded rectangle
@@ -318,7 +349,7 @@ function drawNote(
   // Draw fret number
   if (config.showFretNumbers) {
     ctx.fillStyle = textColor;
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = `bold ${Math.round(16 * scale)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(note.fret.toString(), x, y);
@@ -337,9 +368,9 @@ function drawNote(
   if (note.hitResult) {
     const resultLabel = note.hitResult.toUpperCase();
     ctx.fillStyle = HIT_RESULT_COLORS[note.hitResult];
-    ctx.font = 'bold 10px sans-serif';
+    ctx.font = `bold ${Math.round(10 * scale)}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(resultLabel, x, noteY - 6);
+    ctx.fillText(resultLabel, x, noteY - 6 * scale);
   }
 }
 
@@ -379,7 +410,7 @@ function drawNotes(rc: RenderContext, state: RenderFrameState): void {
     if (x < -config.noteWidth || x > width + config.noteWidth) continue;
 
     const isPassed = note.timeSec < state.currentTimeSec - NOTE_PASSED_THRESHOLD_SEC;
-    drawNote(rc, note, x, isPassed);
+    drawNote(rc, note, x, isPassed, state.currentTimeSec);
   }
 }
 

@@ -115,6 +115,7 @@ export interface RenderNote {
   technique?: Technique;
   isChord: boolean; // True if part of multi-note event
   hitResult?: ScoreResult; // Set when note is hit or missed
+  hitTimestampSec?: number; // When the hit occurred (for animation)
 }
 
 /**
@@ -234,4 +235,40 @@ export function formatTime(sec: number): string {
   const mins = Math.floor(sec / 60);
   const secs = Math.floor(sec % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Get time boundaries for a section by ID.
+ * Returns start and end times in seconds.
+ * Returns null if section not found or is empty (has no measures).
+ */
+export function getSectionTimeBounds(
+  tab: Tab,
+  sectionId: string
+): { startSec: number; endSec: number } | null {
+  const sectionIndex = tab.sections.findIndex((s) => s.id === sectionId);
+  if (sectionIndex === -1) return null;
+
+  const section = tab.sections[sectionIndex];
+  if (section.measures.length === 0) return null;
+
+  const startSec = tickToSec(section.startTick, tab.tempoMap, tab.ppq);
+  const nextSection = tab.sections[sectionIndex + 1];
+
+  // End is start of next section, or end of last event in this section
+  if (nextSection) {
+    const endSec = tickToSec(nextSection.startTick, tab.tempoMap, tab.ppq);
+    return { startSec, endSec };
+  }
+
+  // Last section - find max tick from its measures
+  let maxTick = section.startTick;
+  for (const measure of section.measures) {
+    for (const event of measure.events) {
+      const endTick = event.tick + event.durationTicks;
+      if (endTick > maxTick) maxTick = endTick;
+    }
+  }
+
+  return { startSec, endSec: tickToSec(maxTick, tab.tempoMap, tab.ppq) };
 }
