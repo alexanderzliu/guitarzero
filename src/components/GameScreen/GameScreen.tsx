@@ -212,6 +212,8 @@ export function GameScreen({ tab, onExit }: GameScreenProps) {
             gameState={engine.gameState}
             countdownValue={engine.countdownValue}
             beatActive={engine.beatActive}
+            timeSinceLastOnsetSec={engine.timeSinceLastOnsetSec}
+            lastOnsetMidi={engine.lastOnsetMidi}
             className="w-full h-full"
           />
         </div>

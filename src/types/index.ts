@@ -97,6 +97,8 @@ export interface PitchDetectionResult {
 export interface OnsetEvent {
   timestampSec: number;
   rmsDb: number;
+  midi: MidiNote | null; // Pitch detected at onset time
+  clarity: number; // Pitch detection confidence
 }
 
 export interface ChromaVector {

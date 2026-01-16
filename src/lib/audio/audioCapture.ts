@@ -1,9 +1,9 @@
-import type { WorkletMessage, AudioConfig, PitchDetectionResult } from '../../types';
+import type { WorkletMessage, AudioConfig, PitchDetectionResult, OnsetEvent } from '../../types';
 import { getCalibrationOffset } from '../storage/calibrationStorage';
 
 export interface AudioCaptureCallbacks {
   onPitch?: (result: PitchDetectionResult) => void;
-  onOnset?: (data: { timestampSec: number; rmsDb: number }) => void;
+  onOnset?: (data: OnsetEvent) => void;
   onLevel?: (data: { rmsDb: number; peakDb: number }) => void;
   onError?: (error: Error) => void;
   onStateChange?: (state: 'starting' | 'running' | 'stopped' | 'error') => void;
@@ -41,6 +41,21 @@ export class AudioCapture {
    */
   setDevice(deviceId: string | null): void {
     this.deviceId = deviceId;
+  }
+
+  /**
+   * Get the currently selected device ID
+   */
+  getDeviceId(): string | null {
+    return this.deviceId;
+  }
+
+  /**
+   * Update callbacks on a running audio capture.
+   * This allows a new component to receive events from an already-running capture.
+   */
+  setCallbacks(callbacks: AudioCaptureCallbacks): void {
+    this.callbacks = callbacks;
   }
 
   /**
@@ -96,7 +111,7 @@ export class AudioCapture {
             this.callbacks.onPitch?.(data as PitchDetectionResult);
             break;
           case 'onset':
-            this.callbacks.onOnset?.(data as { timestampSec: number; rmsDb: number });
+            this.callbacks.onOnset?.(data as OnsetEvent);
             break;
           case 'level':
             this.callbacks.onLevel?.(data as { rmsDb: number; peakDb: number });

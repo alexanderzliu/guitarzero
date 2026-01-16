@@ -21,6 +21,8 @@ interface HighwayProps {
   gameState: GameState;
   countdownValue: number;
   beatActive: boolean;
+  timeSinceLastOnsetSec?: number | null;
+  lastOnsetMidi?: number | null;
   className?: string;
 }
 
@@ -32,6 +34,8 @@ export function Highway({
   gameState,
   countdownValue,
   beatActive,
+  timeSinceLastOnsetSec,
+  lastOnsetMidi,
   className = '',
 }: HighwayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -48,6 +52,8 @@ export function Highway({
     gameState,
     countdownValue,
     beatActive,
+    timeSinceLastOnsetSec,
+    lastOnsetMidi,
   });
 
   useEffect(() => {
@@ -59,8 +65,10 @@ export function Highway({
       gameState,
       countdownValue,
       beatActive,
+      timeSinceLastOnsetSec,
+      lastOnsetMidi,
     };
-  }, [notes, currentTimeSec, lookAheadSec, speed, gameState, countdownValue, beatActive]);
+  }, [notes, currentTimeSec, lookAheadSec, speed, gameState, countdownValue, beatActive, timeSinceLastOnsetSec, lastOnsetMidi]);
 
   /**
    * Setup canvas with correct dimensions
@@ -94,6 +102,8 @@ export function Highway({
         gameState: props.gameState,
         countdownValue: props.countdownValue,
         beatActive: props.beatActive,
+        timeSinceLastOnsetSec: props.timeSinceLastOnsetSec ?? undefined,
+        lastOnsetMidi: props.lastOnsetMidi,
       };
       renderFrame(rc, frameState);
     }

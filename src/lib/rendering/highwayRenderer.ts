@@ -78,6 +78,11 @@ export const DEFAULT_HIGHWAY_CONFIG: HighwayConfig = {
 const NOTE_PASSED_THRESHOLD_SEC = 0.1; // Time after hit zone to consider note "passed"
 const HIT_ANIMATION_DURATION_SEC = 0.2; // Duration of hit pulse animation
 
+// Timing tolerances in milliseconds (must match hitDetection.ts)
+const TIMING_PERFECT_MS = 50;
+const TIMING_GOOD_MS = 100;
+const TIMING_OK_MS = 200;
+
 /**
  * Context passed to render functions.
  */
@@ -100,6 +105,10 @@ export interface RenderFrameState {
   gameState: GameState;
   countdownValue: number; // 3, 2, 1, 0
   beatActive: boolean; // Flash during countdown
+  // Onset feedback: time since last onset in seconds (for visual flash)
+  timeSinceLastOnsetSec?: number;
+  // Detected pitch info for debug display
+  lastOnsetMidi?: number | null;
 }
 
 /**
@@ -199,13 +208,53 @@ function drawStringLines(rc: RenderContext): void {
 }
 
 /**
- * Draw the hit zone vertical line.
+ * Draw the hit zone with timing window visualization.
+ * Shows colored bands for OK, Good, and Perfect timing windows.
  */
-function drawHitZone(rc: RenderContext): void {
+function drawHitZone(rc: RenderContext, state?: RenderFrameState): void {
   const { ctx, width, height, config } = rc;
   const hitZoneX = width * config.hitZoneXPercent;
 
-  // Glow effect
+  // Draw timing window bands if we have state info
+  if (state && state.lookAheadSec > 0 && state.speed > 0) {
+    // Calculate pixel width for timing windows based on current speed and look-ahead
+    const visualLookAhead = state.lookAheadSec / state.speed;
+    const travelWidth = width - hitZoneX;
+    const msToPixels = (ms: number) => (ms / 1000 / visualLookAhead) * travelWidth;
+
+    const okWidth = msToPixels(TIMING_OK_MS);
+    const goodWidth = msToPixels(TIMING_GOOD_MS);
+    const perfectWidth = msToPixels(TIMING_PERFECT_MS);
+
+    // Draw timing window bands (back to front: OK -> Good -> Perfect)
+    // OK band (outermost) - subtle blue
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.08)'; // blue-500 at 8%
+    ctx.fillRect(hitZoneX - okWidth, 0, okWidth * 2, height);
+
+    // Good band - slightly brighter
+    ctx.fillStyle = 'rgba(34, 197, 94, 0.1)'; // green-500 at 10%
+    ctx.fillRect(hitZoneX - goodWidth, 0, goodWidth * 2, height);
+
+    // Perfect band - brightest center
+    ctx.fillStyle = 'rgba(250, 204, 21, 0.15)'; // yellow-400 at 15%
+    ctx.fillRect(hitZoneX - perfectWidth, 0, perfectWidth * 2, height);
+  }
+
+  // Draw onset flash effect when a note attack is detected
+  const ONSET_FLASH_DURATION = 0.15; // 150ms flash
+  if (state?.timeSinceLastOnsetSec !== undefined && state.timeSinceLastOnsetSec < ONSET_FLASH_DURATION) {
+    const flashIntensity = 1 - (state.timeSinceLastOnsetSec / ONSET_FLASH_DURATION);
+    const flashAlpha = flashIntensity * 0.4;
+
+    // Flash the entire hit zone area
+    ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+    const flashWidth = state.lookAheadSec > 0 && state.speed > 0
+      ? ((TIMING_OK_MS / 1000) / (state.lookAheadSec / state.speed)) * (width - hitZoneX)
+      : 30;
+    ctx.fillRect(hitZoneX - flashWidth, 0, flashWidth * 2, height);
+  }
+
+  // Draw the center hit line with glow
   ctx.shadowColor = config.hitZoneColor;
   ctx.shadowBlur = 10;
 
@@ -520,7 +569,7 @@ export function renderFrame(rc: RenderContext, state: RenderFrameState): void {
   // Always draw base elements
   clearCanvas(rc);
   drawStringLines(rc);
-  drawHitZone(rc);
+  drawHitZone(rc, state);
   drawNotes(rc, state);
 
   // Draw overlays based on game state
