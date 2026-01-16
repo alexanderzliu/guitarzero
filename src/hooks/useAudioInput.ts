@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { AudioCapture, getAudioCapture } from '../lib/audio/audioCapture';
-import type { PitchDetectionResult, AudioConfig } from '../types';
+import type { PitchDetectionResult, AudioConfig, OnsetEvent } from '../types';
 
 export interface AudioInputState {
   isRunning: boolean;
@@ -10,7 +10,7 @@ export interface AudioInputState {
   selectedDeviceId: string | null;
   currentPitch: PitchDetectionResult | null;
   currentLevel: { rmsDb: number; peakDb: number } | null;
-  lastOnset: { timestampSec: number; rmsDb: number } | null;
+  lastOnset: OnsetEvent | null;
   sampleRate: number;
 }
 
@@ -21,6 +21,7 @@ export interface UseAudioInputReturn extends AudioInputState {
   refreshDevices: () => Promise<void>;
   getAudioContext: () => AudioContext | null;
   getCurrentTime: () => number;
+  lastOnsetRef: React.RefObject<OnsetEvent | null>;
 }
 
 export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputReturn {
@@ -37,16 +38,66 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
   });
 
   const audioCaptureRef = useRef<AudioCapture | null>(null);
+  // Ref for synchronous onset access - React state batching misses rapid onset events
+  const lastOnsetRef = useRef<OnsetEvent | null>(null);
+
+  // Create callbacks that update this hook's state
+  // Memoized so we can reuse for both start() and re-registering on mount
+  const createCallbacks = useCallback(() => ({
+    onPitch: (result: PitchDetectionResult) => {
+      setState((s) => ({ ...s, currentPitch: result }));
+    },
+    onLevel: (level: { rmsDb: number; peakDb: number }) => {
+      setState((s) => ({ ...s, currentLevel: level }));
+    },
+    onOnset: (onset: OnsetEvent) => {
+      // Update ref synchronously for game engine RAF loop
+      lastOnsetRef.current = onset;
+      // Also update state for any React components that need it
+      setState((s) => ({ ...s, lastOnset: onset }));
+    },
+    onStateChange: (newState: 'starting' | 'running' | 'stopped' | 'error') => {
+      setState((s) => ({
+        ...s,
+        isRunning: newState === 'running',
+        isStarting: newState === 'starting',
+      }));
+    },
+    onError: (error: Error) => {
+      setState((s) => ({
+        ...s,
+        error: error.message,
+        isRunning: false,
+        isStarting: false,
+      }));
+    },
+  }), []);
 
   // Initialize audio capture on mount
+  // Note: We do NOT stop audio on unmount - the singleton should persist
+  // across view changes so the game can use the same audio stream
   useEffect(() => {
     audioCaptureRef.current = getAudioCapture(config);
     refreshDevices();
 
-    return () => {
-      audioCaptureRef.current?.stop();
-    };
-  }, []);
+    // Sync local state with singleton state (in case audio was already started)
+    const capture = audioCaptureRef.current;
+    if (capture.isRunning()) {
+      // Re-register callbacks so THIS component receives events
+      capture.setCallbacks(createCallbacks());
+      setState((s) => ({
+        ...s,
+        isRunning: true,
+        selectedDeviceId: capture.getDeviceId(),
+      }));
+    } else {
+      // Sync device ID even if not running
+      setState((s) => ({
+        ...s,
+        selectedDeviceId: capture.getDeviceId(),
+      }));
+    }
+  }, [createCallbacks]);
 
   const refreshDevices = useCallback(async () => {
     try {
@@ -70,32 +121,7 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
     setState((s) => ({ ...s, isStarting: true, error: null }));
 
     try {
-      await audioCaptureRef.current.start({
-        onPitch: (result) => {
-          setState((s) => ({ ...s, currentPitch: result }));
-        },
-        onLevel: (level) => {
-          setState((s) => ({ ...s, currentLevel: level }));
-        },
-        onOnset: (onset) => {
-          setState((s) => ({ ...s, lastOnset: onset }));
-        },
-        onStateChange: (newState) => {
-          setState((s) => ({
-            ...s,
-            isRunning: newState === 'running',
-            isStarting: newState === 'starting',
-          }));
-        },
-        onError: (error) => {
-          setState((s) => ({
-            ...s,
-            error: error.message,
-            isRunning: false,
-            isStarting: false,
-          }));
-        },
-      });
+      await audioCaptureRef.current.start(createCallbacks());
 
       // Update sample rate from actual context
       const config = audioCaptureRef.current.getConfig();
@@ -110,7 +136,7 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
         isStarting: false,
       }));
     }
-  }, [refreshDevices]);
+  }, [createCallbacks, refreshDevices]);
 
   const stop = useCallback(() => {
     audioCaptureRef.current?.stop();
@@ -138,5 +164,6 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
     refreshDevices,
     getAudioContext,
     getCurrentTime,
+    lastOnsetRef,
   };
 }

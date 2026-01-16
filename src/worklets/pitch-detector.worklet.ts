@@ -232,9 +232,11 @@ class PitchDetectorProcessor extends AudioWorkletProcessor {
 
     if (isAboveThreshold && isRising && isDebounced) {
       this.lastOnsetTime = currentTime;
+      // Include pitch with onset so hit detection uses the pitch AT onset time
+      const midi = frequency ? Math.round(hzToMidi(frequency)) : null;
       this.port.postMessage({
         type: 'onset',
-        data: { timestampSec: currentTime, rmsDb },
+        data: { timestampSec: currentTime, rmsDb, midi, clarity },
       });
     }
 

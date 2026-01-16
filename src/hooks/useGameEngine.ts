@@ -56,6 +56,9 @@ export interface GameEngineState {
   // Practice mode looping
   loopConfig: LoopConfig | null;
   loopCount: number; // How many times we've looped
+  // Onset detection feedback
+  timeSinceLastOnsetSec: number | null; // Time since last detected onset
+  lastOnsetMidi: number | null; // MIDI note of last onset
 }
 
 export interface UseGameEngineReturn extends GameEngineState {
@@ -107,6 +110,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     lastHitResult: null,
     loopConfig: null,
     loopCount: 0,
+    timeSinceLastOnsetSec: null,
+    lastOnsetMidi: null,
   }));
 
   // Refs for RAF loop (avoid stale closures)
@@ -124,7 +129,9 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const hitNotesRef = useRef<Set<string>>(new Set()); // Track which notes have been scored
   const noteResultsRef = useRef<Map<string, ScoreResult>>(new Map()); // Store results for rendering
   const hitTimestampsRef = useRef<Map<string, number>>(new Map()); // Store hit timestamps for animation
-  const lastOnsetRef = useRef<{ timestampSec: number; rmsDb: number } | null>(null);
+  const lastOnsetRef = useRef<{ timestampSec: number; rmsDb: number; midi: number | null; clarity: number } | null>(null);
+  // Fallback pitch when onset detection returns null during attack transients
+  const lastValidPitchRef = useRef<{ midi: number; timestamp: number } | null>(null);
 
   // Refs for memoized values (to use in RAF loop)
   const allNotesRef = useRef(allNotes);
@@ -242,25 +249,42 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       // ===== Hit Detection =====
       let lastHitResult: ScoreResult | null = null;
 
-      // Check for onset events (note attacks)
-      const currentOnset = audioInputRef.current.lastOnset;
+      // Track last valid pitch from continuous detection (for fallback)
+      const currentPitch = audioInputRef.current.currentPitch;
+      if (currentPitch?.midi != null) {
+        lastValidPitchRef.current = {
+          midi: currentPitch.midi,
+          timestamp: currentPitch.timestampSec,
+        };
+      }
+
+      // Check for onset events via ref (avoids React state batching delays)
+      const currentOnset = audioInputRef.current.lastOnsetRef.current;
+
       if (currentOnset && currentOnset !== lastOnsetRef.current) {
         lastOnsetRef.current = currentOnset;
 
-        // Get current pitch at onset time
-        const currentPitch = audioInputRef.current.currentPitch;
-        const detectedMidi = currentPitch?.midi ?? null;
+        // Determine pitch using fallback chain: onset pitch -> current pitch -> recent valid pitch.
+        // Onset pitch can be null during attack transients when the signal is chaotic.
+        const lastValid = lastValidPitchRef.current;
+        const isRecentValidPitch = lastValid && (currentOnset.timestampSec - lastValid.timestamp) < 0.5;
+        const detectedMidi = currentOnset.midi ?? currentPitch?.midi ?? (isRecentValidPitch ? lastValid.midi : null);
 
         if (detectedMidi !== null) {
+          // Convert onset timestamp (audio context time) to song time
+          // onset.timestampSec is in audio context time, we need to convert to song time
+          const onsetElapsed = currentOnset.timestampSec - playStartTimeRef.current;
+          const onsetSongTime = onsetElapsed * speed;
+
           // Find notes that haven't been hit yet
           const pendingNotes = allNotesRef.current.filter(
             (n) => !hitNotesRef.current.has(getNoteKey(n))
           );
 
-          // Find matching notes
+          // Find matching notes using the ONSET time, not current time
           const matches = findMatchingNotes(
             detectedMidi,
-            songTime,
+            onsetSongTime,
             pendingNotes,
             DEFAULT_TIMING_TOLERANCES
           );
@@ -271,14 +295,14 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
             if (!hitNotesRef.current.has(noteKey)) {
               hitNotesRef.current.add(noteKey);
               noteResultsRef.current.set(noteKey, match.result);
-              hitTimestampsRef.current.set(noteKey, songTime); // Store hit time for animation
+              hitTimestampsRef.current.set(noteKey, onsetSongTime); // Store hit time for animation
               scoreStateRef.current = applyHitResult(scoreStateRef.current, match.result);
               lastHitResult = match.result;
 
               // Emit play event for session recording
               if (onPlayEventRef.current) {
                 onPlayEventRef.current(
-                  createHitEvent(match.note, match.result, match.offsetMs, detectedMidi, songTime)
+                  createHitEvent(match.note, match.result, match.offsetMs, detectedMidi, onsetSongTime)
                 );
               }
             }
@@ -323,12 +347,21 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
         return note;
       });
 
+      // Calculate time since last onset for visual feedback
+      const audioTime = audioInputRef.current.getCurrentTime();
+      const lastOnset = lastOnsetRef.current;
+      const timeSinceLastOnsetSec = lastOnset
+        ? audioTime - lastOnset.timestampSec
+        : null;
+
       setState((s) => ({
         ...s,
         currentTimeSec: songTime,
         visibleNotes,
         scoreState: scoreStateRef.current,
         lastHitResult: lastHitResult ?? s.lastHitResult,
+        timeSinceLastOnsetSec,
+        lastOnsetMidi: lastOnset?.midi ?? null,
       }));
 
       rafIdRef.current = requestAnimationFrame(gameLoop);
@@ -373,6 +406,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       lastHitResult: null,
       loopConfig: loopConfigRef.current,
       loopCount: 0,
+      timeSinceLastOnsetSec: null,
+      lastOnsetMidi: null,
     });
 
     // Start game loop
@@ -449,6 +484,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       lastHitResult: null,
       loopConfig: loopConfigRef.current,
       loopCount: 0,
+      timeSinceLastOnsetSec: null,
+      lastOnsetMidi: null,
     });
   }, []);
 
