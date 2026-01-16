@@ -22,13 +22,13 @@ export const DEFAULT_TIMING_TOLERANCES: TimingTolerances = {
 };
 
 /**
- * Pitch tolerance in semitones (accounts for tuning/bending variance).
+ * Pitch tolerance in semitones.
+ * Allows for tuning differences and pitch detection variance during attack transients.
  */
-export const PITCH_TOLERANCE_SEMITONES = 1;
+export const PITCH_TOLERANCE_SEMITONES = 2;
 
 /**
- * Check if a detected MIDI pitch matches an expected note.
- * Allows for ±1 semitone tolerance.
+ * Check if a detected MIDI pitch matches an expected note within tolerance.
  */
 export function pitchMatches(
   detectedMidi: MidiNote | null,

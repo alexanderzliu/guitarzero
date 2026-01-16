@@ -21,6 +21,7 @@ export interface UseAudioInputReturn extends AudioInputState {
   refreshDevices: () => Promise<void>;
   getAudioContext: () => AudioContext | null;
   getCurrentTime: () => number;
+  lastOnsetRef: React.RefObject<OnsetEvent | null>;
 }
 
 export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputReturn {
@@ -37,6 +38,8 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
   });
 
   const audioCaptureRef = useRef<AudioCapture | null>(null);
+  // Ref for synchronous onset access - React state batching misses rapid onset events
+  const lastOnsetRef = useRef<OnsetEvent | null>(null);
 
   // Create callbacks that update this hook's state
   // Memoized so we can reuse for both start() and re-registering on mount
@@ -48,6 +51,9 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
       setState((s) => ({ ...s, currentLevel: level }));
     },
     onOnset: (onset: OnsetEvent) => {
+      // Update ref synchronously for game engine RAF loop
+      lastOnsetRef.current = onset;
+      // Also update state for any React components that need it
       setState((s) => ({ ...s, lastOnset: onset }));
     },
     onStateChange: (newState: 'starting' | 'running' | 'stopped' | 'error') => {
@@ -158,5 +164,6 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
     refreshDevices,
     getAudioContext,
     getCurrentTime,
+    lastOnsetRef,
   };
 }

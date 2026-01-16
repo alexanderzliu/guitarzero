@@ -130,6 +130,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const noteResultsRef = useRef<Map<string, ScoreResult>>(new Map()); // Store results for rendering
   const hitTimestampsRef = useRef<Map<string, number>>(new Map()); // Store hit timestamps for animation
   const lastOnsetRef = useRef<{ timestampSec: number; rmsDb: number; midi: number | null; clarity: number } | null>(null);
+  // Fallback pitch when onset detection returns null during attack transients
+  const lastValidPitchRef = useRef<{ midi: number; timestamp: number } | null>(null);
 
   // Refs for memoized values (to use in RAF loop)
   const allNotesRef = useRef(allNotes);
@@ -247,13 +249,26 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       // ===== Hit Detection =====
       let lastHitResult: ScoreResult | null = null;
 
-      // Check for onset events (note attacks)
-      const currentOnset = audioInputRef.current.lastOnset;
+      // Track last valid pitch from continuous detection (for fallback)
+      const currentPitch = audioInputRef.current.currentPitch;
+      if (currentPitch?.midi != null) {
+        lastValidPitchRef.current = {
+          midi: currentPitch.midi,
+          timestamp: currentPitch.timestampSec,
+        };
+      }
+
+      // Check for onset events via ref (avoids React state batching delays)
+      const currentOnset = audioInputRef.current.lastOnsetRef.current;
+
       if (currentOnset && currentOnset !== lastOnsetRef.current) {
         lastOnsetRef.current = currentOnset;
 
-        // Use pitch from the onset event (captured at exact onset time)
-        const detectedMidi = currentOnset.midi;
+        // Determine pitch using fallback chain: onset pitch -> current pitch -> recent valid pitch.
+        // Onset pitch can be null during attack transients when the signal is chaotic.
+        const lastValid = lastValidPitchRef.current;
+        const isRecentValidPitch = lastValid && (currentOnset.timestampSec - lastValid.timestamp) < 0.5;
+        const detectedMidi = currentOnset.midi ?? currentPitch?.midi ?? (isRecentValidPitch ? lastValid.midi : null);
 
         if (detectedMidi !== null) {
           // Convert onset timestamp (audio context time) to song time
