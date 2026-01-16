@@ -173,3 +173,18 @@ export interface GameContext {
   streak: number;
   events: PlayEvent[];
 }
+
+// ============================================================================
+// Practice Mode Types
+// ============================================================================
+
+/**
+ * Configuration for section looping in practice mode.
+ * When set, playback loops between startSec and endSec.
+ */
+export interface LoopConfig {
+  sectionId: string;
+  sectionName: string;
+  startSec: number;
+  endSec: number;
+}

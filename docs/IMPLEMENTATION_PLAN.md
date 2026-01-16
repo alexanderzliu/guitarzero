@@ -287,14 +287,14 @@ Run these validations on import to catch errors early and prevent downstream bug
 
 ---
 
-### Phase 6: Polish & UX
+### Phase 6: Polish & UX ✅
 **Goal**: Make it feel good to use
 
-1. Add metronome/click track option
-2. Practice mode (loop a section)
-3. Speed adjustment (50%, 75%, 100%)
-4. Keyboard shortcuts (space = start/pause)
-5. Visual polish and animations
+1. ~~Add metronome/click track option~~ (countdown metronome exists)
+2. ✅ Practice mode (loop a section)
+3. ✅ Speed adjustment (50%, 75%, 100%) - implemented in Phase 3
+4. ✅ Keyboard shortcuts (space = start/pause) - implemented in Phase 3
+5. ✅ Visual polish and animations (hit pulse/scale)
 6. Error handling and edge cases
 7. Mobile-responsive layout (for viewing analytics)
 

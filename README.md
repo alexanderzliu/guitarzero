@@ -37,17 +37,19 @@ A web-based guitar training application that provides real-time feedback as you 
 - **Score tracking** with points (100/75/50/0) and streak multipliers (1x→4x)
 - **Header display** showing score, streak, and accuracy percentage
 
-### Phase 5: Session Recording & Analytics (Planned)
-- Record play events for post-session review
-- Results page with section breakdown
-- Progress tracking over time
-- Performance statistics
+### Phase 5: Session Recording & Analytics ✅
+- **Play event recording** with timing offsets for each note
+- **Results overlay** with letter grade (S/A/B/C/D/F) and stats
+- **Timing histogram** showing early/late distribution
+- **Session history** in tab preview with best scores
+- **Problem spot identification** across sessions
+- **IndexedDB persistence** via Dexie.js
 
-### Phase 6: Polish & UX (Planned)
-- Practice mode with section looping
-- Difficulty adjustment
-- Visual polish and animations
-- Additional settings and themes
+### Phase 6: Polish & UX ✅
+- **Practice mode with section looping** - select any section to loop continuously
+- **Hit animations** - notes pulse/scale on successful hits (200ms sine wave)
+- **Loop counter** displays current iteration number
+- **Score reset** at the beginning of each loop
 
 ## Tech Stack
 
@@ -163,9 +165,10 @@ src/
 - [x] Phase 4: Hit detection comparing played vs expected notes
 - [x] Phase 4: Scoring system with timing tolerance
 - [x] Phase 4: Visual feedback and score display
-- [ ] Phase 5: Session recording and results
-- [ ] Phase 6: Practice mode with section looping
-- [ ] Phase 6: Visual polish and additional settings
+- [x] Phase 5: Session recording and results
+- [x] Phase 5: Progress tracking with problem spots
+- [x] Phase 6: Practice mode with section looping
+- [x] Phase 6: Hit animations and visual polish
 
 ## License
 
