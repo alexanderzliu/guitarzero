@@ -21,7 +21,11 @@ export interface UseAudioInputReturn extends AudioInputState {
   refreshDevices: () => Promise<void>;
   getAudioContext: () => AudioContext | null;
   getCurrentTime: () => number;
-  lastOnsetRef: React.RefObject<OnsetEvent | null>;
+  /**
+   * Drain all unprocessed onset events since the last call.
+   * Uses a queue to avoid missing multiple onsets between RAF ticks.
+   */
+  drainOnsets: () => OnsetEvent[] | null;
 }
 
 export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputReturn {
@@ -38,8 +42,8 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
   });
 
   const audioCaptureRef = useRef<AudioCapture | null>(null);
-  // Ref for synchronous onset access - React state batching misses rapid onset events
-  const lastOnsetRef = useRef<OnsetEvent | null>(null);
+  const onsetQueueRef = useRef<OnsetEvent[]>([]);
+  const MAX_ONSET_QUEUE = 100;
 
   // Create callbacks that update this hook's state
   // Memoized so we can reuse for both start() and re-registering on mount
@@ -51,8 +55,11 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
       setState((s) => ({ ...s, currentLevel: level }));
     },
     onOnset: (onset: OnsetEvent) => {
-      // Update ref synchronously for game engine RAF loop
-      lastOnsetRef.current = onset;
+      // Queue synchronously so the game engine can drain reliably (no RAF misses).
+      onsetQueueRef.current.push(onset);
+      if (onsetQueueRef.current.length > MAX_ONSET_QUEUE) {
+        onsetQueueRef.current.splice(0, onsetQueueRef.current.length - MAX_ONSET_QUEUE);
+      }
       // Also update state for any React components that need it
       setState((s) => ({ ...s, lastOnset: onset }));
     },
@@ -140,6 +147,7 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
 
   const stop = useCallback(() => {
     audioCaptureRef.current?.stop();
+    onsetQueueRef.current.length = 0;
     setState((s) => ({
       ...s,
       isRunning: false,
@@ -156,6 +164,11 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
     return audioCaptureRef.current?.getCurrentTime() ?? 0;
   }, []);
 
+  const drainOnsets = useCallback((): OnsetEvent[] | null => {
+    if (onsetQueueRef.current.length === 0) return null;
+    return onsetQueueRef.current.splice(0, onsetQueueRef.current.length);
+  }, []);
+
   return {
     ...state,
     start,
@@ -164,6 +177,6 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
     refreshDevices,
     getAudioContext,
     getCurrentTime,
-    lastOnsetRef,
+    drainOnsets,
   };
 }
