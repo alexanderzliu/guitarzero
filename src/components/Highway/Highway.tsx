@@ -42,6 +42,7 @@ export function Highway({
   const containerRef = useRef<HTMLDivElement>(null);
   const renderContextRef = useRef<RenderContext | null>(null);
   const rafIdRef = useRef<number>(0);
+  const renderRef = useRef<() => void>(() => {});
 
   // Store props in refs to avoid recreating render loop
   const propsRef = useRef({
@@ -108,7 +109,7 @@ export function Highway({
       renderFrame(rc, frameState);
     }
 
-    rafIdRef.current = requestAnimationFrame(render);
+    rafIdRef.current = requestAnimationFrame(() => renderRef.current());
   }, []);
 
   // Initialize canvas on mount
@@ -116,7 +117,8 @@ export function Highway({
     setupCanvasSize();
 
     // Start render loop
-    rafIdRef.current = requestAnimationFrame(render);
+    renderRef.current = render;
+    rafIdRef.current = requestAnimationFrame(() => renderRef.current());
 
     return () => {
       cancelAnimationFrame(rafIdRef.current);

@@ -48,16 +48,17 @@ export function GameScreen({ tab, onExit }: GameScreenProps) {
   // Game engine with event emission
   const engine = useGameEngine({
     tab,
+    initialSpeed: playbackSpeed,
     onPlayEvent: recorder.recordEvent,
   });
 
   // Track last countdown value to trigger metronome
   const lastCountdownRef = useRef<number>(0);
 
-  // Sync playback speed for session recording
-  useEffect(() => {
-    setPlaybackSpeed(engine.speed);
-  }, [engine.speed]);
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    engine.setSpeed(speed);
+  };
 
   // Save session when game finishes naturally
   useEffect(() => {
@@ -232,7 +233,7 @@ export function GameScreen({ tab, onExit }: GameScreenProps) {
           onPause={engine.pause}
           onResume={engine.resume}
           onStop={engine.stop}
-          onSpeedChange={engine.setSpeed}
+          onSpeedChange={handleSpeedChange}
           onLookAheadChange={engine.setLookAhead}
           onStartAudio={engine.startAudio}
           onExit={onExit}

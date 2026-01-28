@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { AudioCapture, getAudioCapture } from '../lib/audio/audioCapture';
+import { getAudioCapture } from '../lib/audio/audioCapture';
+import type { AudioCapture } from '../lib/audio/audioCapture';
 import type { PitchDetectionResult, AudioConfig, OnsetEvent } from '../types';
 
 export interface AudioInputState {
@@ -21,10 +22,16 @@ export interface UseAudioInputReturn extends AudioInputState {
   refreshDevices: () => Promise<void>;
   getAudioContext: () => AudioContext | null;
   getCurrentTime: () => number;
-  lastOnsetRef: React.RefObject<OnsetEvent | null>;
+  /**
+   * Drain all unprocessed onset events since the last call.
+   * Uses a queue to avoid missing multiple onsets between RAF ticks.
+   */
+  drainOnsets: () => OnsetEvent[] | null;
 }
 
 export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputReturn {
+  const initialConfigRef = useRef(config);
+
   const [state, setState] = useState<AudioInputState>({
     isRunning: false,
     isStarting: false,
@@ -38,8 +45,19 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
   });
 
   const audioCaptureRef = useRef<AudioCapture | null>(null);
-  // Ref for synchronous onset access - React state batching misses rapid onset events
-  const lastOnsetRef = useRef<OnsetEvent | null>(null);
+  const onsetQueueRef = useRef<OnsetEvent[]>([]);
+  const MAX_ONSET_QUEUE = 100;
+
+  const refreshDevices = useCallback(async () => {
+    try {
+      // Need to request permission first to get device labels
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter((d) => d.kind === 'audioinput');
+      setState((s) => ({ ...s, devices: audioInputs }));
+    } catch (error) {
+      console.error('Failed to enumerate devices:', error);
+    }
+  }, []);
 
   // Create callbacks that update this hook's state
   // Memoized so we can reuse for both start() and re-registering on mount
@@ -51,8 +69,11 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
       setState((s) => ({ ...s, currentLevel: level }));
     },
     onOnset: (onset: OnsetEvent) => {
-      // Update ref synchronously for game engine RAF loop
-      lastOnsetRef.current = onset;
+      // Queue synchronously so the game engine can drain reliably (no RAF misses).
+      onsetQueueRef.current.push(onset);
+      if (onsetQueueRef.current.length > MAX_ONSET_QUEUE) {
+        onsetQueueRef.current.splice(0, onsetQueueRef.current.length - MAX_ONSET_QUEUE);
+      }
       // Also update state for any React components that need it
       setState((s) => ({ ...s, lastOnset: onset }));
     },
@@ -77,8 +98,8 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
   // Note: We do NOT stop audio on unmount - the singleton should persist
   // across view changes so the game can use the same audio stream
   useEffect(() => {
-    audioCaptureRef.current = getAudioCapture(config);
-    refreshDevices();
+    audioCaptureRef.current = getAudioCapture(initialConfigRef.current);
+    void refreshDevices();
 
     // Sync local state with singleton state (in case audio was already started)
     const capture = audioCaptureRef.current;
@@ -97,18 +118,7 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
         selectedDeviceId: capture.getDeviceId(),
       }));
     }
-  }, [createCallbacks]);
-
-  const refreshDevices = useCallback(async () => {
-    try {
-      // Need to request permission first to get device labels
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioInputs = devices.filter((d) => d.kind === 'audioinput');
-      setState((s) => ({ ...s, devices: audioInputs }));
-    } catch (error) {
-      console.error('Failed to enumerate devices:', error);
-    }
-  }, []);
+  }, [createCallbacks, refreshDevices]);
 
   const selectDevice = useCallback((deviceId: string | null) => {
     audioCaptureRef.current?.setDevice(deviceId);
@@ -140,6 +150,7 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
 
   const stop = useCallback(() => {
     audioCaptureRef.current?.stop();
+    onsetQueueRef.current.length = 0;
     setState((s) => ({
       ...s,
       isRunning: false,
@@ -156,6 +167,11 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
     return audioCaptureRef.current?.getCurrentTime() ?? 0;
   }, []);
 
+  const drainOnsets = useCallback((): OnsetEvent[] | null => {
+    if (onsetQueueRef.current.length === 0) return null;
+    return onsetQueueRef.current.splice(0, onsetQueueRef.current.length);
+  }, []);
+
   return {
     ...state,
     start,
@@ -164,6 +180,6 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
     refreshDevices,
     getAudioContext,
     getCurrentTime,
-    lastOnsetRef,
+    drainOnsets,
   };
 }

@@ -44,6 +44,8 @@ export function useSessionHistory(tabId: string): UseSessionHistoryReturn {
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    // Yield so effects can call refresh without synchronously triggering setState.
+    await Promise.resolve();
     setIsLoading(true);
 
     try {

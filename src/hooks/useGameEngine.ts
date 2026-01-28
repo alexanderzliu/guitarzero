@@ -121,8 +121,13 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const speedRef = useRef<number>(initialSpeed);
   const lookAheadRef = useRef<number>(initialLookAhead);
   const rafIdRef = useRef<number>(0);
+  const gameLoopRef = useRef<() => void>(() => {});
   const loopConfigRef = useRef<LoopConfig | null>(null);
   const loopCountRef = useRef<number>(0);
+
+  const scheduleNextFrame = useCallback(() => {
+    rafIdRef.current = requestAnimationFrame(() => gameLoopRef.current());
+  }, []);
 
   // Scoring refs (mutable during RAF loop)
   const scoreStateRef = useRef<ScoreState>(INITIAL_SCORE_STATE);
@@ -167,6 +172,9 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     const elapsed = audioTime - playStartTimeRef.current;
 
     if (gameStateRef.current === 'countdown') {
+      // Discard any onset events during countdown so they don't get processed when play starts.
+      audioInputRef.current.drainOnsets();
+
       // Countdown phase
       if (elapsed >= countdownDuration) {
         // Countdown finished, start playing
@@ -194,7 +202,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
         }));
       }
 
-      rafIdRef.current = requestAnimationFrame(gameLoop);
+      scheduleNextFrame();
       return;
     }
 
@@ -207,6 +215,9 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
 
       // Check for loop end (if looping is enabled)
       if (loopConfig && songTime >= loopConfig.endSec) {
+        // Discard any queued onsets so they don't "spill" into the loop restart.
+        audioInputRef.current.drainOnsets();
+
         // Reset to loop start
         const audioTime = audioInputRef.current.getCurrentTime();
         const loopStartOffset = loopConfig.startSec / speed;
@@ -229,7 +240,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
           lastHitResult: null,
         }));
 
-        rafIdRef.current = requestAnimationFrame(gameLoop);
+        scheduleNextFrame();
         return;
       }
 
@@ -258,52 +269,53 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
         };
       }
 
-      // Check for onset events via ref (avoids React state batching delays)
-      const currentOnset = audioInputRef.current.lastOnsetRef.current;
+      // Drain onset events from a queue (avoids missing multiple onsets between RAF ticks)
+      const onsetEvents = audioInputRef.current.drainOnsets();
+      if (onsetEvents) {
+        for (const onset of onsetEvents) {
+          lastOnsetRef.current = onset;
 
-      if (currentOnset && currentOnset !== lastOnsetRef.current) {
-        lastOnsetRef.current = currentOnset;
+          // Determine pitch using fallback chain: onset pitch -> current pitch -> recent valid pitch.
+          // Onset pitch can be null during attack transients when the signal is chaotic.
+          const lastValid = lastValidPitchRef.current;
+          const isRecentValidPitch = lastValid && (onset.timestampSec - lastValid.timestamp) < 0.5;
+          const detectedMidi = onset.midi ?? currentPitch?.midi ?? (isRecentValidPitch ? lastValid.midi : null);
 
-        // Determine pitch using fallback chain: onset pitch -> current pitch -> recent valid pitch.
-        // Onset pitch can be null during attack transients when the signal is chaotic.
-        const lastValid = lastValidPitchRef.current;
-        const isRecentValidPitch = lastValid && (currentOnset.timestampSec - lastValid.timestamp) < 0.5;
-        const detectedMidi = currentOnset.midi ?? currentPitch?.midi ?? (isRecentValidPitch ? lastValid.midi : null);
+          if (detectedMidi !== null) {
+            // Convert onset timestamp (audio context time) to song time
+            // onset.timestampSec is in audio context time, we need to convert to song time
+            const onsetElapsed = onset.timestampSec - playStartTimeRef.current;
+            const onsetSongTime = onsetElapsed * speed;
 
-        if (detectedMidi !== null) {
-          // Convert onset timestamp (audio context time) to song time
-          // onset.timestampSec is in audio context time, we need to convert to song time
-          const onsetElapsed = currentOnset.timestampSec - playStartTimeRef.current;
-          const onsetSongTime = onsetElapsed * speed;
+            // Find notes that haven't been hit yet
+            const pendingNotes = allNotesRef.current.filter(
+              (n) => !hitNotesRef.current.has(getNoteKey(n))
+            );
 
-          // Find notes that haven't been hit yet
-          const pendingNotes = allNotesRef.current.filter(
-            (n) => !hitNotesRef.current.has(getNoteKey(n))
-          );
+            // Find matching notes using the ONSET time, not current time
+            const matches = findMatchingNotes(
+              detectedMidi,
+              onsetSongTime,
+              pendingNotes,
+              DEFAULT_TIMING_TOLERANCES
+            );
 
-          // Find matching notes using the ONSET time, not current time
-          const matches = findMatchingNotes(
-            detectedMidi,
-            onsetSongTime,
-            pendingNotes,
-            DEFAULT_TIMING_TOLERANCES
-          );
+            // Process matches (best match first based on timing)
+            for (const match of matches) {
+              const noteKey = getNoteKey(match.note);
+              if (!hitNotesRef.current.has(noteKey)) {
+                hitNotesRef.current.add(noteKey);
+                noteResultsRef.current.set(noteKey, match.result);
+                hitTimestampsRef.current.set(noteKey, onsetSongTime); // Store hit time for animation
+                scoreStateRef.current = applyHitResult(scoreStateRef.current, match.result);
+                lastHitResult = match.result;
 
-          // Process matches (best match first based on timing)
-          for (const match of matches) {
-            const noteKey = getNoteKey(match.note);
-            if (!hitNotesRef.current.has(noteKey)) {
-              hitNotesRef.current.add(noteKey);
-              noteResultsRef.current.set(noteKey, match.result);
-              hitTimestampsRef.current.set(noteKey, onsetSongTime); // Store hit time for animation
-              scoreStateRef.current = applyHitResult(scoreStateRef.current, match.result);
-              lastHitResult = match.result;
-
-              // Emit play event for session recording
-              if (onPlayEventRef.current) {
-                onPlayEventRef.current(
-                  createHitEvent(match.note, match.result, match.offsetMs, detectedMidi, onsetSongTime)
-                );
+                // Emit play event for session recording
+                if (onPlayEventRef.current) {
+                  onPlayEventRef.current(
+                    createHitEvent(match.note, match.result, match.offsetMs, detectedMidi, onsetSongTime)
+                  );
+                }
               }
             }
           }
@@ -364,9 +376,13 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
         lastOnsetMidi: lastOnset?.midi ?? null,
       }));
 
-      rafIdRef.current = requestAnimationFrame(gameLoop);
+      scheduleNextFrame();
     }
-  }, [countdownDuration, beatDuration]);
+  }, [countdownDuration, beatDuration, scheduleNextFrame]);
+
+  useEffect(() => {
+    gameLoopRef.current = gameLoop;
+  }, [gameLoop]);
 
   /**
    * Start the game (begins countdown)
@@ -376,6 +392,9 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       console.warn('Audio must be running to start game');
       return;
     }
+
+    // Drop any queued onsets from idle so they don't count when starting.
+    audioInputRef.current.drainOnsets();
 
     // Reset state
     gameStateRef.current = 'countdown';
@@ -411,8 +430,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     });
 
     // Start game loop
-    rafIdRef.current = requestAnimationFrame(gameLoop);
-  }, [gameLoop]);
+    scheduleNextFrame();
+  }, [scheduleNextFrame]);
 
   /**
    * Pause the game (works during playing or countdown)
@@ -424,6 +443,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     gameStateRef.current = 'paused';
     pausedAtTimeRef.current = audioInputRef.current.getCurrentTime();
     cancelAnimationFrame(rafIdRef.current);
+    audioInputRef.current.drainOnsets();
+    lastOnsetRef.current = null;
 
     setState((s) => ({
       ...s,
@@ -439,6 +460,10 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const resume = useCallback(() => {
     if (gameStateRef.current !== 'paused') return;
 
+    // Ignore onsets that occurred while paused.
+    audioInputRef.current.drainOnsets();
+    lastOnsetRef.current = null;
+
     // Adjust start time to account for pause duration
     const pauseDuration = audioInputRef.current.getCurrentTime() - pausedAtTimeRef.current;
     playStartTimeRef.current += pauseDuration;
@@ -453,8 +478,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     }));
 
     // Resume game loop
-    rafIdRef.current = requestAnimationFrame(gameLoop);
-  }, [gameLoop, state.countdownValue]);
+    scheduleNextFrame();
+  }, [scheduleNextFrame, state.countdownValue]);
 
   /**
    * Stop and reset to beginning
@@ -462,6 +487,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const stop = useCallback(() => {
     cancelAnimationFrame(rafIdRef.current);
     gameStateRef.current = 'idle';
+    audioInputRef.current.drainOnsets();
 
     // Reset scoring state
     scoreStateRef.current = INITIAL_SCORE_STATE;
