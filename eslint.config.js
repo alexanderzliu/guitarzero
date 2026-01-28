@@ -15,6 +15,12 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    rules: {
+      // Too strict for typical client-side data fetching and initialization patterns.
+      'react-hooks/set-state-in-effect': 'off',
+      // Avoid false positives with React Compiler inference.
+      'react-hooks/preserve-manual-memoization': 'off',
+    },
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,

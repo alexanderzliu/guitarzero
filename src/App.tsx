@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DebugPanel } from './components/DebugPanel';
 import { CalibrationWizard } from './components/Calibration';
 import { TabImportWizard } from './components/TabImport';
@@ -13,13 +13,8 @@ type AppView = 'main' | 'calibration' | 'tab-import' | 'tab-preview' | 'game';
 
 function App() {
   const [view, setView] = useState<AppView>('main');
-  const [tabs, setTabs] = useState<TabMetadata[]>([]);
+  const [tabs, setTabs] = useState<TabMetadata[]>(() => listTabs());
   const [selectedTab, setSelectedTab] = useState<Tab | null>(null);
-
-  // Load tabs on mount
-  useEffect(() => {
-    setTabs(listTabs());
-  }, []);
 
   const handleTabImported = (tab: Tab) => {
     setTabs(listTabs()); // Refresh tab list

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { AudioCapture, getAudioCapture } from '../lib/audio/audioCapture';
+import { getAudioCapture } from '../lib/audio/audioCapture';
+import type { AudioCapture } from '../lib/audio/audioCapture';
 import type { PitchDetectionResult, AudioConfig, OnsetEvent } from '../types';
 
 export interface AudioInputState {
@@ -29,6 +30,8 @@ export interface UseAudioInputReturn extends AudioInputState {
 }
 
 export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputReturn {
+  const initialConfigRef = useRef(config);
+
   const [state, setState] = useState<AudioInputState>({
     isRunning: false,
     isStarting: false,
@@ -44,6 +47,17 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
   const audioCaptureRef = useRef<AudioCapture | null>(null);
   const onsetQueueRef = useRef<OnsetEvent[]>([]);
   const MAX_ONSET_QUEUE = 100;
+
+  const refreshDevices = useCallback(async () => {
+    try {
+      // Need to request permission first to get device labels
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter((d) => d.kind === 'audioinput');
+      setState((s) => ({ ...s, devices: audioInputs }));
+    } catch (error) {
+      console.error('Failed to enumerate devices:', error);
+    }
+  }, []);
 
   // Create callbacks that update this hook's state
   // Memoized so we can reuse for both start() and re-registering on mount
@@ -84,8 +98,8 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
   // Note: We do NOT stop audio on unmount - the singleton should persist
   // across view changes so the game can use the same audio stream
   useEffect(() => {
-    audioCaptureRef.current = getAudioCapture(config);
-    refreshDevices();
+    audioCaptureRef.current = getAudioCapture(initialConfigRef.current);
+    void refreshDevices();
 
     // Sync local state with singleton state (in case audio was already started)
     const capture = audioCaptureRef.current;
@@ -104,18 +118,7 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
         selectedDeviceId: capture.getDeviceId(),
       }));
     }
-  }, [createCallbacks]);
-
-  const refreshDevices = useCallback(async () => {
-    try {
-      // Need to request permission first to get device labels
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioInputs = devices.filter((d) => d.kind === 'audioinput');
-      setState((s) => ({ ...s, devices: audioInputs }));
-    } catch (error) {
-      console.error('Failed to enumerate devices:', error);
-    }
-  }, []);
+  }, [createCallbacks, refreshDevices]);
 
   const selectDevice = useCallback((deviceId: string | null) => {
     audioCaptureRef.current?.setDevice(deviceId);

@@ -1,5 +1,6 @@
 import type { RenderNote } from '../tabs/tempoUtils';
 import type { GameState, ScoreResult } from '../../types';
+import { DEFAULT_TIMING_TOLERANCES } from '../scoring';
 
 // ============================================================================
 // Highway Renderer - Pure Canvas Drawing Functions
@@ -77,11 +78,6 @@ export const DEFAULT_HIGHWAY_CONFIG: HighwayConfig = {
 
 const NOTE_PASSED_THRESHOLD_SEC = 0.1; // Time after hit zone to consider note "passed"
 const HIT_ANIMATION_DURATION_SEC = 0.2; // Duration of hit pulse animation
-
-// Timing tolerances in milliseconds (must match hitDetection.ts)
-const TIMING_PERFECT_MS = 50;
-const TIMING_GOOD_MS = 100;
-const TIMING_OK_MS = 200;
 
 /**
  * Context passed to render functions.
@@ -222,9 +218,9 @@ function drawHitZone(rc: RenderContext, state?: RenderFrameState): void {
     const travelWidth = width - hitZoneX;
     const msToPixels = (ms: number) => (ms / 1000 / visualLookAhead) * travelWidth;
 
-    const okWidth = msToPixels(TIMING_OK_MS);
-    const goodWidth = msToPixels(TIMING_GOOD_MS);
-    const perfectWidth = msToPixels(TIMING_PERFECT_MS);
+    const okWidth = msToPixels(DEFAULT_TIMING_TOLERANCES.okMs);
+    const goodWidth = msToPixels(DEFAULT_TIMING_TOLERANCES.goodMs);
+    const perfectWidth = msToPixels(DEFAULT_TIMING_TOLERANCES.perfectMs);
 
     // Draw timing window bands (back to front: OK -> Good -> Perfect)
     // OK band (outermost) - subtle blue
@@ -249,7 +245,7 @@ function drawHitZone(rc: RenderContext, state?: RenderFrameState): void {
     // Flash the entire hit zone area
     ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
     const flashWidth = state.lookAheadSec > 0 && state.speed > 0
-      ? ((TIMING_OK_MS / 1000) / (state.lookAheadSec / state.speed)) * (width - hitZoneX)
+      ? ((DEFAULT_TIMING_TOLERANCES.okMs / 1000) / (state.lookAheadSec / state.speed)) * (width - hitZoneX)
       : 30;
     ctx.fillRect(hitZoneX - flashWidth, 0, flashWidth * 2, height);
   }

@@ -121,8 +121,13 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const speedRef = useRef<number>(initialSpeed);
   const lookAheadRef = useRef<number>(initialLookAhead);
   const rafIdRef = useRef<number>(0);
+  const gameLoopRef = useRef<() => void>(() => {});
   const loopConfigRef = useRef<LoopConfig | null>(null);
   const loopCountRef = useRef<number>(0);
+
+  const scheduleNextFrame = useCallback(() => {
+    rafIdRef.current = requestAnimationFrame(() => gameLoopRef.current());
+  }, []);
 
   // Scoring refs (mutable during RAF loop)
   const scoreStateRef = useRef<ScoreState>(INITIAL_SCORE_STATE);
@@ -197,7 +202,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
         }));
       }
 
-      rafIdRef.current = requestAnimationFrame(gameLoop);
+      scheduleNextFrame();
       return;
     }
 
@@ -235,7 +240,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
           lastHitResult: null,
         }));
 
-        rafIdRef.current = requestAnimationFrame(gameLoop);
+        scheduleNextFrame();
         return;
       }
 
@@ -371,9 +376,13 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
         lastOnsetMidi: lastOnset?.midi ?? null,
       }));
 
-      rafIdRef.current = requestAnimationFrame(gameLoop);
+      scheduleNextFrame();
     }
-  }, [countdownDuration, beatDuration]);
+  }, [countdownDuration, beatDuration, scheduleNextFrame]);
+
+  useEffect(() => {
+    gameLoopRef.current = gameLoop;
+  }, [gameLoop]);
 
   /**
    * Start the game (begins countdown)
@@ -421,8 +430,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     });
 
     // Start game loop
-    rafIdRef.current = requestAnimationFrame(gameLoop);
-  }, [gameLoop]);
+    scheduleNextFrame();
+  }, [scheduleNextFrame]);
 
   /**
    * Pause the game (works during playing or countdown)
@@ -469,8 +478,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     }));
 
     // Resume game loop
-    rafIdRef.current = requestAnimationFrame(gameLoop);
-  }, [gameLoop, state.countdownValue]);
+    scheduleNextFrame();
+  }, [scheduleNextFrame, state.countdownValue]);
 
   /**
    * Stop and reset to beginning

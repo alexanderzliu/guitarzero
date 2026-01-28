@@ -82,6 +82,11 @@ export function useCalibration(): UseCalibrationReturn {
   const calibrationStartTimeRef = useRef<number>(0);
   const animationFrameRef = useRef<number>(0);
   const lastProcessedOnsetRef = useRef<number>(0);
+  const calibrationLoopRef = useRef<() => void>(() => {});
+
+  const scheduleNextFrame = useCallback(() => {
+    animationFrameRef.current = requestAnimationFrame(() => calibrationLoopRef.current());
+  }, []);
 
   // Ref for audioInput to avoid stale closures in animation loop
   const audioInputRef = useRef(audioInput);
@@ -206,7 +211,7 @@ export function useCalibration(): UseCalibrationReturn {
       }));
       phaseRef.current = 'countdown';
 
-      animationFrameRef.current = requestAnimationFrame(runCalibrationLoop);
+      scheduleNextFrame();
       return;
     }
 
@@ -229,13 +234,17 @@ export function useCalibration(): UseCalibrationReturn {
         beatActive,
       }));
 
-      animationFrameRef.current = requestAnimationFrame(runCalibrationLoop);
+      scheduleNextFrame();
       return;
     }
 
     // Processing phase - calculate offset
     processResults();
-  }, [processResults]);
+  }, [processResults, scheduleNextFrame]);
+
+  useEffect(() => {
+    calibrationLoopRef.current = runCalibrationLoop;
+  }, [runCalibrationLoop]);
 
   /**
    * Start the calibration process
@@ -279,8 +288,9 @@ export function useCalibration(): UseCalibrationReturn {
     });
 
     // Start the animation loop
-    animationFrameRef.current = requestAnimationFrame(runCalibrationLoop);
-  }, [runCalibrationLoop]);
+    calibrationLoopRef.current = runCalibrationLoop;
+    scheduleNextFrame();
+  }, [runCalibrationLoop, scheduleNextFrame]);
 
   /**
    * Cancel calibration
