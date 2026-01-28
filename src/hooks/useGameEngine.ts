@@ -1,24 +1,19 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { Tab, GameState, ScoreResult, MidiNote, LoopConfig } from '../types';
+import type { Tab, GameState, ScoreResult, MidiNote, LoopConfig, OnsetEvent } from '../types';
 import { useAudioInput } from './useAudioInput';
 import {
   prepareRenderNotes,
   getVisibleNotes,
   getTabDuration,
   getBpmAtTick,
-  getSectionTimeBounds,
   type RenderNote,
 } from '../lib/tabs/tempoUtils';
-import {
-  findMatchingNotes,
-  findMissedNotes,
-  getNoteKey,
-  applyHitResult,
-  DEFAULT_TIMING_TOLERANCES,
-  INITIAL_SCORE_STATE,
-  type ScoreState,
-} from '../lib/scoring';
-import { createHitEvent, createMissEvent, type PlayEventRecord } from '../lib/session';
+import type { ScoreState } from '../lib/scoring';
+import type { PlayEventRecord } from '../lib/session';
+import { createCountdownClock, getSongTimeSec, getPlayStartTimeForSongTime, applyPauseToPlayStart, isActiveGameplayState } from './gameEngine/clock';
+import { buildLoopConfig, computeLoopRestart, getLoopStartSec, shouldRestartLoop } from './gameEngine/looping';
+import { drainDetectedOnsets, getOnsetFeedback } from './gameEngine/onsetIntake';
+import { createScoringEngine } from './gameEngine/scoringEngine';
 
 // ============================================================================
 // Game Engine Hook - State Machine for Tab Playback
@@ -49,7 +44,6 @@ export interface GameEngineState {
   speed: number;
   lookAheadSec: number;
   visibleNotes: RenderNote[];
-  duration: number; // Total song duration in seconds
   // Scoring state
   scoreState: ScoreState;
   lastHitResult: ScoreResult | null; // For UI feedback
@@ -64,6 +58,7 @@ export interface GameEngineState {
 export interface UseGameEngineReturn extends GameEngineState {
   // All pre-computed notes (for scoring in Phase 4)
   allNotes: RenderNote[];
+  duration: number; // Total song duration in seconds
 
   // Actions
   start: () => void;
@@ -86,6 +81,19 @@ export interface UseGameEngineReturn extends GameEngineState {
   currentPitch: { midi: MidiNote | null; clarity: number } | null;
 }
 
+interface GameEngineUiState {
+  gameState: GameState;
+  currentTimeSec: number;
+  countdownValue: number;
+  beatActive: boolean;
+  speed: number;
+  lookAheadSec: number;
+  visibleNotes: RenderNote[];
+  loopConfig: LoopConfig | null;
+  timeSinceLastOnsetSec: number | null;
+  lastOnsetMidi: number | null;
+}
+
 export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const { tab, initialSpeed = DEFAULT_SPEED, initialLookAhead = DEFAULT_LOOK_AHEAD_SEC, onPlayEvent } = config;
 
@@ -96,8 +104,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const allNotes = useMemo(() => prepareRenderNotes(tab), [tab]);
   const tabDuration = useMemo(() => getTabDuration(tab), [tab]);
 
-  // Game state
-  const [state, setState] = useState<GameEngineState>(() => ({
+  // Minimal UI-facing state (everything else stays in refs/engines)
+  const [ui, setUi] = useState<GameEngineUiState>(() => ({
     gameState: 'idle',
     currentTimeSec: 0,
     countdownValue: COUNTDOWN_BEATS,
@@ -105,11 +113,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     speed: initialSpeed,
     lookAheadSec: initialLookAhead,
     visibleNotes: [],
-    duration: tabDuration,
-    scoreState: INITIAL_SCORE_STATE,
-    lastHitResult: null,
     loopConfig: null,
-    loopCount: 0,
     timeSinceLastOnsetSec: null,
     lastOnsetMidi: null,
   }));
@@ -118,6 +122,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const gameStateRef = useRef<GameState>('idle');
   const playStartTimeRef = useRef<number>(0);
   const pausedAtTimeRef = useRef<number>(0);
+  const pausedFromCountdownRef = useRef<boolean>(false);
   const speedRef = useRef<number>(initialSpeed);
   const lookAheadRef = useRef<number>(initialLookAhead);
   const rafIdRef = useRef<number>(0);
@@ -129,14 +134,12 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     rafIdRef.current = requestAnimationFrame(() => gameLoopRef.current());
   }, []);
 
-  // Scoring refs (mutable during RAF loop)
-  const scoreStateRef = useRef<ScoreState>(INITIAL_SCORE_STATE);
-  const hitNotesRef = useRef<Set<string>>(new Set()); // Track which notes have been scored
-  const noteResultsRef = useRef<Map<string, ScoreResult>>(new Map()); // Store results for rendering
-  const hitTimestampsRef = useRef<Map<string, number>>(new Map()); // Store hit timestamps for animation
-  const lastOnsetRef = useRef<{ timestampSec: number; rmsDb: number; midi: number | null; clarity: number } | null>(null);
-  // Fallback pitch when onset detection returns null during attack transients
-  const lastValidPitchRef = useRef<{ midi: number; timestamp: number } | null>(null);
+  // Scoring engine (kept in a ref so it stays mutable and stable)
+  const scoringEngineRef = useRef(createScoringEngine());
+
+  // Onset intake refs
+  const lastOnsetRef = useRef<OnsetEvent | null>(null);
+  const lastValidPitchRef = useRef<{ midi: number; timestampSec: number } | null>(null);
 
   // Refs for memoized values (to use in RAF loop)
   const allNotesRef = useRef(allNotes);
@@ -144,13 +147,14 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   useEffect(() => {
     allNotesRef.current = allNotes;
     tabDurationRef.current = tabDuration;
-    setState((s) => ({ ...s, duration: tabDuration }));
   }, [allNotes, tabDuration]);
 
   // BPM for countdown timing
   const countdownBpm = getBpmAtTick(0, tab.tempoMap);
-  const beatDuration = 60 / countdownBpm;
-  const countdownDuration = COUNTDOWN_BEATS * beatDuration;
+  const countdownClock = useMemo(
+    () => createCountdownClock(countdownBpm, COUNTDOWN_BEATS),
+    [countdownBpm]
+  );
 
   // Get current audio time (ref to avoid stale closure)
   const audioInputRef = useRef(audioInput);
@@ -169,37 +173,29 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
    */
   const gameLoop = useCallback(() => {
     const audioTime = audioInputRef.current.getCurrentTime();
-    const elapsed = audioTime - playStartTimeRef.current;
+    const elapsedSec = audioTime - playStartTimeRef.current;
 
     if (gameStateRef.current === 'countdown') {
       // Discard any onset events during countdown so they don't get processed when play starts.
       audioInputRef.current.drainOnsets();
 
-      // Countdown phase
-      if (elapsed >= countdownDuration) {
+      const frame = countdownClock.getFrame(elapsedSec);
+      if (frame.isDone) {
         // Countdown finished, start playing
         gameStateRef.current = 'playing';
-        playStartTimeRef.current = audioTime; // Reset start time for song
+        const speed = speedRef.current;
+        const loopStartSec = getLoopStartSec(loopConfigRef.current);
+        playStartTimeRef.current = getPlayStartTimeForSongTime(audioTime, loopStartSec, speed);
 
-        setState((s) => ({
+        setUi((s) => ({
           ...s,
           gameState: 'playing',
           countdownValue: 0,
           beatActive: false,
-          currentTimeSec: 0,
+          currentTimeSec: loopStartSec,
         }));
       } else {
-        // Still in countdown
-        const beatIndex = Math.floor(elapsed / beatDuration);
-        const beatProgress = (elapsed % beatDuration) / beatDuration;
-        const countdownValue = COUNTDOWN_BEATS - beatIndex;
-        const beatActive = beatProgress < 0.15; // Flash for 15% of beat
-
-        setState((s) => ({
-          ...s,
-          countdownValue: Math.max(1, countdownValue),
-          beatActive,
-        }));
+        setUi((s) => ({ ...s, countdownValue: frame.countdownValue, beatActive: frame.beatActive }));
       }
 
       scheduleNextFrame();
@@ -207,37 +203,35 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     }
 
     if (gameStateRef.current === 'playing') {
-      // Playing phase - advance song time
       const speed = speedRef.current;
       const loopConfig = loopConfigRef.current;
-      let songTime = elapsed * speed;
+      let songTimeSec = getSongTimeSec(audioTime, playStartTimeRef.current, speed);
       const duration = tabDurationRef.current;
 
       // Check for loop end (if looping is enabled)
-      if (loopConfig && songTime >= loopConfig.endSec) {
+      if (loopConfig && shouldRestartLoop(loopConfig, songTimeSec)) {
         // Discard any queued onsets so they don't "spill" into the loop restart.
         audioInputRef.current.drainOnsets();
 
-        // Reset to loop start
-        const audioTime = audioInputRef.current.getCurrentTime();
-        const loopStartOffset = loopConfig.startSec / speed;
-        playStartTimeRef.current = audioTime - loopStartOffset;
-        songTime = loopConfig.startSec;
+        const restart = computeLoopRestart({
+          audioTimeSec: audioInputRef.current.getCurrentTime(),
+          loopConfig,
+          speed,
+        });
+        playStartTimeRef.current = restart.playStartTimeSec;
+        songTimeSec = restart.songTimeSec;
 
-        // Reset scoring state for new loop iteration
-        scoreStateRef.current = INITIAL_SCORE_STATE;
-        hitNotesRef.current = new Set();
-        noteResultsRef.current = new Map();
-        hitTimestampsRef.current = new Map();
+        // Reset scoring + feedback for new loop iteration
+        scoringEngineRef.current.reset();
         lastOnsetRef.current = null;
         loopCountRef.current += 1;
 
-        setState((s) => ({
+        setUi((s) => ({
           ...s,
-          currentTimeSec: songTime,
-          scoreState: INITIAL_SCORE_STATE,
-          loopCount: loopCountRef.current,
-          lastHitResult: null,
+          currentTimeSec: songTimeSec,
+          visibleNotes: [],
+          timeSinceLastOnsetSec: null,
+          lastOnsetMidi: null,
         }));
 
         scheduleNextFrame();
@@ -245,140 +239,60 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       }
 
       // Check for song end (no loop or past loop bounds)
-      if (songTime >= duration) {
+      if (songTimeSec >= duration) {
         gameStateRef.current = 'finished';
-        setState((s) => ({
+        setUi((s) => ({
           ...s,
           gameState: 'finished',
           currentTimeSec: duration,
           visibleNotes: [],
-          scoreState: scoreStateRef.current,
         }));
         return; // Stop the loop
       }
 
-      // ===== Hit Detection =====
-      let lastHitResult: ScoreResult | null = null;
-
-      // Track last valid pitch from continuous detection (for fallback)
-      const currentPitch = audioInputRef.current.currentPitch;
-      if (currentPitch?.midi != null) {
-        lastValidPitchRef.current = {
-          midi: currentPitch.midi,
-          timestamp: currentPitch.timestampSec,
-        };
-      }
-
-      // Drain onset events from a queue (avoids missing multiple onsets between RAF ticks)
-      const onsetEvents = audioInputRef.current.drainOnsets();
-      if (onsetEvents) {
-        for (const onset of onsetEvents) {
-          lastOnsetRef.current = onset;
-
-          // Determine pitch using fallback chain: onset pitch -> current pitch -> recent valid pitch.
-          // Onset pitch can be null during attack transients when the signal is chaotic.
-          const lastValid = lastValidPitchRef.current;
-          const isRecentValidPitch = lastValid && (onset.timestampSec - lastValid.timestamp) < 0.5;
-          const detectedMidi = onset.midi ?? currentPitch?.midi ?? (isRecentValidPitch ? lastValid.midi : null);
-
-          if (detectedMidi !== null) {
-            // Convert onset timestamp (audio context time) to song time
-            // onset.timestampSec is in audio context time, we need to convert to song time
-            const onsetElapsed = onset.timestampSec - playStartTimeRef.current;
-            const onsetSongTime = onsetElapsed * speed;
-
-            // Find notes that haven't been hit yet
-            const pendingNotes = allNotesRef.current.filter(
-              (n) => !hitNotesRef.current.has(getNoteKey(n))
-            );
-
-            // Find matching notes using the ONSET time, not current time
-            const matches = findMatchingNotes(
-              detectedMidi,
-              onsetSongTime,
-              pendingNotes,
-              DEFAULT_TIMING_TOLERANCES
-            );
-
-            // Process matches (best match first based on timing)
-            for (const match of matches) {
-              const noteKey = getNoteKey(match.note);
-              if (!hitNotesRef.current.has(noteKey)) {
-                hitNotesRef.current.add(noteKey);
-                noteResultsRef.current.set(noteKey, match.result);
-                hitTimestampsRef.current.set(noteKey, onsetSongTime); // Store hit time for animation
-                scoreStateRef.current = applyHitResult(scoreStateRef.current, match.result);
-                lastHitResult = match.result;
-
-                // Emit play event for session recording
-                if (onPlayEventRef.current) {
-                  onPlayEventRef.current(
-                    createHitEvent(match.note, match.result, match.offsetMs, detectedMidi, onsetSongTime)
-                  );
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // ===== Miss Detection =====
-      // Find notes that have passed the miss threshold
-      const pendingNotes = allNotesRef.current.filter(
-        (n) => !hitNotesRef.current.has(getNoteKey(n))
-      );
-      const missedNotes = findMissedNotes(songTime, pendingNotes, DEFAULT_TIMING_TOLERANCES);
-
-      for (const note of missedNotes) {
-        const noteKey = getNoteKey(note);
-        hitNotesRef.current.add(noteKey);
-        noteResultsRef.current.set(noteKey, 'miss');
-        scoreStateRef.current = applyHitResult(scoreStateRef.current, 'miss');
-        lastHitResult = 'miss';
-
-        // Emit play event for session recording
-        if (onPlayEventRef.current) {
-          onPlayEventRef.current(createMissEvent(note, songTime));
-        }
-      }
+      const detectedOnsets = drainDetectedOnsets({
+        audioInput: audioInputRef.current,
+        playStartTimeSec: playStartTimeRef.current,
+        speed,
+        lastOnsetRef,
+        lastValidPitchRef,
+      });
 
       // Get visible notes with hit results and timestamps applied
       const lookAhead = lookAheadRef.current;
-      const visibleNotes = getVisibleNotes(
+      const baseVisibleNotes = getVisibleNotes(
         allNotesRef.current,
-        songTime,
+        songTimeSec,
         lookAhead / speed, // Adjust look-ahead by speed
         LOOK_BEHIND_SEC
-      ).map((note) => {
-        const noteKey = getNoteKey(note);
-        const hitResult = noteResultsRef.current.get(noteKey);
-        const hitTimestampSec = hitTimestampsRef.current.get(noteKey);
-        if (hitResult) {
-          return { ...note, hitResult, hitTimestampSec };
-        }
-        return note;
+      );
+
+      // Process scoring after we have the song clock (uses onset song times, not frame time)
+      scoringEngineRef.current.processDetectedOnsets({
+        detectedOnsets,
+        allNotes: allNotesRef.current,
+        onPlayEvent: onPlayEventRef.current,
+      });
+      scoringEngineRef.current.processMisses({
+        songTimeSec,
+        allNotes: allNotesRef.current,
+        onPlayEvent: onPlayEventRef.current,
       });
 
-      // Calculate time since last onset for visual feedback
-      const audioTime = audioInputRef.current.getCurrentTime();
-      const lastOnset = lastOnsetRef.current;
-      const timeSinceLastOnsetSec = lastOnset
-        ? audioTime - lastOnset.timestampSec
-        : null;
+      const visibleNotes = scoringEngineRef.current.annotateVisibleNotes(baseVisibleNotes);
+      const onsetFeedback = getOnsetFeedback({ audioTimeSec: audioTime, lastOnsetRef });
 
-      setState((s) => ({
+      setUi((s) => ({
         ...s,
-        currentTimeSec: songTime,
+        currentTimeSec: songTimeSec,
         visibleNotes,
-        scoreState: scoreStateRef.current,
-        lastHitResult: lastHitResult ?? s.lastHitResult,
-        timeSinceLastOnsetSec,
-        lastOnsetMidi: lastOnset?.midi ?? null,
+        timeSinceLastOnsetSec: onsetFeedback.timeSinceLastOnsetSec,
+        lastOnsetMidi: onsetFeedback.lastOnsetMidi,
       }));
 
       scheduleNextFrame();
     }
-  }, [countdownDuration, beatDuration, scheduleNextFrame]);
+  }, [countdownClock, scheduleNextFrame]);
 
   useEffect(() => {
     gameLoopRef.current = gameLoop;
@@ -400,19 +314,15 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     gameStateRef.current = 'countdown';
     playStartTimeRef.current = audioInputRef.current.getCurrentTime();
 
-    // Reset scoring state
-    scoreStateRef.current = INITIAL_SCORE_STATE;
-    hitNotesRef.current = new Set();
-    noteResultsRef.current = new Map();
-    hitTimestampsRef.current = new Map();
+    // Reset scoring + feedback
+    scoringEngineRef.current.reset();
     lastOnsetRef.current = null;
     loopCountRef.current = 0;
 
     // If loop is active, start at loop start time
-    const loopConfig = loopConfigRef.current;
-    const startTime = loopConfig ? loopConfig.startSec : 0;
+    const startTime = getLoopStartSec(loopConfigRef.current);
 
-    setState({
+    setUi({
       gameState: 'countdown',
       currentTimeSec: startTime,
       countdownValue: COUNTDOWN_BEATS,
@@ -420,11 +330,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       speed: speedRef.current,
       lookAheadSec: lookAheadRef.current,
       visibleNotes: [],
-      duration: tabDurationRef.current,
-      scoreState: INITIAL_SCORE_STATE,
-      lastHitResult: null,
       loopConfig: loopConfigRef.current,
-      loopCount: 0,
       timeSinceLastOnsetSec: null,
       lastOnsetMidi: null,
     });
@@ -437,20 +343,18 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
    * Pause the game (works during playing or countdown)
    */
   const pause = useCallback(() => {
-    if (gameStateRef.current !== 'playing' && gameStateRef.current !== 'countdown') return;
+    if (!isActiveGameplayState(gameStateRef.current)) return;
 
-    const wasCountdown = gameStateRef.current === 'countdown';
+    pausedFromCountdownRef.current = gameStateRef.current === 'countdown';
     gameStateRef.current = 'paused';
     pausedAtTimeRef.current = audioInputRef.current.getCurrentTime();
     cancelAnimationFrame(rafIdRef.current);
     audioInputRef.current.drainOnsets();
     lastOnsetRef.current = null;
 
-    setState((s) => ({
+    setUi((s) => ({
       ...s,
       gameState: 'paused',
-      // Preserve countdown value if paused during countdown
-      countdownValue: wasCountdown ? s.countdownValue : 0,
     }));
   }, []);
 
@@ -465,21 +369,20 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     lastOnsetRef.current = null;
 
     // Adjust start time to account for pause duration
-    const pauseDuration = audioInputRef.current.getCurrentTime() - pausedAtTimeRef.current;
-    playStartTimeRef.current += pauseDuration;
+    const resumeAtTimeSec = audioInputRef.current.getCurrentTime();
+    playStartTimeRef.current = applyPauseToPlayStart(playStartTimeRef.current, pausedAtTimeRef.current, resumeAtTimeSec);
 
-    // Resume to the correct state based on countdown value
-    const resumeToCountdown = state.countdownValue > 0;
+    const resumeToCountdown = pausedFromCountdownRef.current;
     gameStateRef.current = resumeToCountdown ? 'countdown' : 'playing';
 
-    setState((s) => ({
+    setUi((s) => ({
       ...s,
       gameState: resumeToCountdown ? 'countdown' : 'playing',
     }));
 
     // Resume game loop
     scheduleNextFrame();
-  }, [scheduleNextFrame, state.countdownValue]);
+  }, [scheduleNextFrame]);
 
   /**
    * Stop and reset to beginning
@@ -489,15 +392,12 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     gameStateRef.current = 'idle';
     audioInputRef.current.drainOnsets();
 
-    // Reset scoring state
-    scoreStateRef.current = INITIAL_SCORE_STATE;
-    hitNotesRef.current = new Set();
-    noteResultsRef.current = new Map();
-    hitTimestampsRef.current = new Map();
+    // Reset scoring + feedback
+    scoringEngineRef.current.reset();
     lastOnsetRef.current = null;
     loopCountRef.current = 0;
 
-    setState({
+    setUi({
       gameState: 'idle',
       currentTimeSec: 0,
       countdownValue: COUNTDOWN_BEATS,
@@ -505,11 +405,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       speed: speedRef.current,
       lookAheadSec: lookAheadRef.current,
       visibleNotes: [],
-      duration: tabDurationRef.current,
-      scoreState: INITIAL_SCORE_STATE,
-      lastHitResult: null,
       loopConfig: loopConfigRef.current,
-      loopCount: 0,
       timeSinceLastOnsetSec: null,
       lastOnsetMidi: null,
     });
@@ -521,7 +417,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const setSpeed = useCallback((speed: number) => {
     const clampedSpeed = Math.max(MIN_SPEED, Math.min(MAX_SPEED, speed));
     speedRef.current = clampedSpeed;
-    setState((s) => ({ ...s, speed: clampedSpeed }));
+    setUi((s) => ({ ...s, speed: clampedSpeed }));
   }, []);
 
   /**
@@ -530,7 +426,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   const setLookAhead = useCallback((sec: number) => {
     const clampedSec = Math.max(MIN_LOOK_AHEAD_SEC, Math.min(MAX_LOOK_AHEAD_SEC, sec));
     lookAheadRef.current = clampedSec;
-    setState((s) => ({ ...s, lookAheadSec: clampedSec }));
+    setUi((s) => ({ ...s, lookAheadSec: clampedSec }));
   }, []);
 
   /**
@@ -542,27 +438,19 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       if (sectionId === null) {
         loopConfigRef.current = null;
         loopCountRef.current = 0;
-        setState((s) => ({ ...s, loopConfig: null, loopCount: 0 }));
+        setUi((s) => ({ ...s, loopConfig: null }));
         return;
       }
 
-      const section = tab.sections.find((s) => s.id === sectionId);
-      const bounds = getSectionTimeBounds(tab, sectionId);
-      if (!section || !bounds) {
+      const newLoopConfig = buildLoopConfig(tab, sectionId);
+      if (!newLoopConfig) {
         console.warn(`Section not found or empty: ${sectionId}`);
         return;
       }
 
-      const newLoopConfig: LoopConfig = {
-        sectionId,
-        sectionName: section.name,
-        startSec: bounds.startSec,
-        endSec: bounds.endSec,
-      };
-
       loopConfigRef.current = newLoopConfig;
       loopCountRef.current = 0;
-      setState((s) => ({ ...s, loopConfig: newLoopConfig, loopCount: 0 }));
+      setUi((s) => ({ ...s, loopConfig: newLoopConfig }));
     },
     [tab]
   );
@@ -581,8 +469,12 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
   }, []);
 
   return {
-    ...state,
+    ...ui,
     allNotes,
+    duration: tabDuration,
+    scoreState: scoringEngineRef.current.getScoreState(),
+    lastHitResult: scoringEngineRef.current.getLastHitResult(),
+    loopCount: loopCountRef.current,
     start,
     pause,
     resume,
