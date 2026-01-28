@@ -43,6 +43,7 @@ export function DebugPanel() {
     currentLevel,
     lastOnset,
     sampleRate,
+    inputOffsetSec,
     start,
     stop,
     selectDevice,
@@ -139,6 +140,10 @@ export function DebugPanel() {
             <span className="text-slate-300">{sampleRate} Hz</span>
           </div>
           <div className="flex justify-between">
+            <span>Input Offset</span>
+            <span className="text-slate-300">{(inputOffsetSec * 1000).toFixed(0)} ms</span>
+          </div>
+          <div className="flex justify-between">
             <span>Clarity</span>
             <span className="text-slate-300">
               {currentPitch?.clarity !== undefined
@@ -155,6 +160,10 @@ export function DebugPanel() {
             <span className="text-slate-300">
               {lastOnset ? `${lastOnset.timestampSec.toFixed(2)}s` : '—'}
             </span>
+          </div>
+          <div className="flex justify-between">
+            <span>Onset MIDI</span>
+            <span className="text-slate-300">{lastOnset?.midi ?? '—'}</span>
           </div>
         </div>
       )}

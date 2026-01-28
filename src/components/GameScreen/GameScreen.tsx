@@ -9,6 +9,7 @@ import { playMetronomeClick } from '../../lib/audio/metronome';
 import { getAudioCapture } from '../../lib/audio/audioCapture';
 import { getStreakMultiplier, calculateAccuracy } from '../../lib/scoring';
 import type { SessionRecord } from '../../lib/session';
+import { midiToNoteName } from '../../lib/audio/midiUtils';
 
 // ============================================================================
 // Game Screen Component - Main Orchestrator
@@ -192,6 +193,22 @@ export function GameScreen({ tab, onExit }: GameScreenProps) {
           <div className="flex items-center gap-4">
             <span className="text-slate-500 text-sm">
               {tab.tempoMap[0]?.bpm || '?'} BPM
+            </span>
+            <span className="text-slate-500 text-sm">
+              Pitch:{' '}
+              <span className="text-slate-300">
+                {engine.currentPitch?.midi != null && engine.currentPitch.clarity > 0.5
+                  ? `${midiToNoteName(engine.currentPitch.midi)} (${engine.currentPitch.midi})`
+                  : '—'}
+              </span>
+            </span>
+            <span className="text-slate-500 text-sm">
+              Scoring:{' '}
+              <span className="text-slate-300">
+                {engine.lastScoringMidi != null
+                  ? `${midiToNoteName(engine.lastScoringMidi)} (${engine.lastScoringMidi})`
+                  : '—'}
+              </span>
             </span>
             {engine.speed < 1 && (
               <span className="px-2 py-1 bg-yellow-900/50 text-yellow-400 text-sm rounded">

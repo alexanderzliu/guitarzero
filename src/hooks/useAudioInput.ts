@@ -13,6 +13,7 @@ export interface AudioInputState {
   currentLevel: { rmsDb: number; peakDb: number } | null;
   lastOnset: OnsetEvent | null;
   sampleRate: number;
+  inputOffsetSec: number;
 }
 
 export interface UseAudioInputReturn extends AudioInputState {
@@ -42,6 +43,7 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
     currentLevel: null,
     lastOnset: null,
     sampleRate: 48000,
+    inputOffsetSec: 0,
   });
 
   const audioCaptureRef = useRef<AudioCapture | null>(null);
@@ -106,10 +108,13 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
     if (capture.isRunning()) {
       // Re-register callbacks so THIS component receives events
       capture.setCallbacks(createCallbacks());
+      const config = capture.getConfig();
       setState((s) => ({
         ...s,
         isRunning: true,
         selectedDeviceId: capture.getDeviceId(),
+        sampleRate: config.sampleRate,
+        inputOffsetSec: config.inputOffsetSec,
       }));
     } else {
       // Sync device ID even if not running
@@ -135,7 +140,7 @@ export function useAudioInput(config?: Partial<AudioConfig>): UseAudioInputRetur
 
       // Update sample rate from actual context
       const config = audioCaptureRef.current.getConfig();
-      setState((s) => ({ ...s, sampleRate: config.sampleRate }));
+      setState((s) => ({ ...s, sampleRate: config.sampleRate, inputOffsetSec: config.inputOffsetSec }));
 
       // Refresh devices to get labels (now that we have permission)
       await refreshDevices();

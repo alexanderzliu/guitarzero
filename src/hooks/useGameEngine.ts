@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { Tab, GameState, ScoreResult, MidiNote, LoopConfig, OnsetEvent } from '../types';
+import type { Tab, GameState, ScoreResult, MidiNote, LoopConfig, OnsetEvent, PitchDetectionResult } from '../types';
 import { useAudioInput } from './useAudioInput';
 import {
   prepareRenderNotes,
@@ -47,6 +47,7 @@ export interface GameEngineState {
   // Scoring state
   scoreState: ScoreState;
   lastHitResult: ScoreResult | null; // For UI feedback
+  lastScoringMidi: MidiNote | null; // Pitch actually used for the last onset scoring attempt
   // Practice mode looping
   loopConfig: LoopConfig | null;
   loopCount: number; // How many times we've looped
@@ -92,6 +93,7 @@ interface GameEngineUiState {
   loopConfig: LoopConfig | null;
   timeSinceLastOnsetSec: number | null;
   lastOnsetMidi: number | null;
+  lastScoringMidi: MidiNote | null;
 }
 
 export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
@@ -116,6 +118,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     loopConfig: null,
     timeSinceLastOnsetSec: null,
     lastOnsetMidi: null,
+    lastScoringMidi: null,
   }));
 
   // Refs for RAF loop (avoid stale closures)
@@ -139,7 +142,9 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
 
   // Onset intake refs
   const lastOnsetRef = useRef<OnsetEvent | null>(null);
-  const lastValidPitchRef = useRef<{ midi: number; timestampSec: number } | null>(null);
+  const pendingOnsetsRef = useRef<OnsetEvent[]>([]);
+  const pitchHistoryRef = useRef<PitchDetectionResult[]>([]);
+  const lastPitchTimestampRef = useRef<number>(-Infinity);
 
   // Refs for memoized values (to use in RAF loop)
   const allNotesRef = useRef(allNotes);
@@ -175,9 +180,20 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     const audioTime = audioInputRef.current.getCurrentTime();
     const elapsedSec = audioTime - playStartTimeRef.current;
 
+    // Track recent pitch samples so we can resolve "pitch at onset" using a sample *after* the attack.
+    const currentPitch = audioInputRef.current.currentPitch;
+    if (currentPitch && currentPitch.timestampSec > lastPitchTimestampRef.current) {
+      pitchHistoryRef.current.push(currentPitch);
+      lastPitchTimestampRef.current = currentPitch.timestampSec;
+      if (pitchHistoryRef.current.length > 120) {
+        pitchHistoryRef.current.splice(0, pitchHistoryRef.current.length - 120);
+      }
+    }
+
     if (gameStateRef.current === 'countdown') {
       // Discard any onset events during countdown so they don't get processed when play starts.
       audioInputRef.current.drainOnsets();
+      pendingOnsetsRef.current = [];
 
       const frame = countdownClock.getFrame(elapsedSec);
       if (frame.isDone) {
@@ -254,8 +270,10 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
         audioInput: audioInputRef.current,
         playStartTimeSec: playStartTimeRef.current,
         speed,
+        inputOffsetSec: audioInputRef.current.inputOffsetSec ?? 0,
+        recentPitches: pitchHistoryRef.current,
+        pendingOnsetsRef,
         lastOnsetRef,
-        lastValidPitchRef,
       });
 
       // Get visible notes with hit results and timestamps applied
@@ -288,6 +306,8 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
         visibleNotes,
         timeSinceLastOnsetSec: onsetFeedback.timeSinceLastOnsetSec,
         lastOnsetMidi: onsetFeedback.lastOnsetMidi,
+        lastScoringMidi:
+          detectedOnsets.length > 0 ? detectedOnsets[detectedOnsets.length - 1].detectedMidi : s.lastScoringMidi,
       }));
 
       scheduleNextFrame();
@@ -309,6 +329,9 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
 
     // Drop any queued onsets from idle so they don't count when starting.
     audioInputRef.current.drainOnsets();
+    pendingOnsetsRef.current = [];
+    pitchHistoryRef.current = [];
+    lastPitchTimestampRef.current = -Infinity;
 
     // Reset state
     gameStateRef.current = 'countdown';
@@ -333,6 +356,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       loopConfig: loopConfigRef.current,
       timeSinceLastOnsetSec: null,
       lastOnsetMidi: null,
+      lastScoringMidi: null,
     });
 
     // Start game loop
@@ -350,6 +374,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     pausedAtTimeRef.current = audioInputRef.current.getCurrentTime();
     cancelAnimationFrame(rafIdRef.current);
     audioInputRef.current.drainOnsets();
+    pendingOnsetsRef.current = [];
     lastOnsetRef.current = null;
 
     setUi((s) => ({
@@ -366,6 +391,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
 
     // Ignore onsets that occurred while paused.
     audioInputRef.current.drainOnsets();
+    pendingOnsetsRef.current = [];
     lastOnsetRef.current = null;
 
     // Adjust start time to account for pause duration
@@ -391,6 +417,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
     cancelAnimationFrame(rafIdRef.current);
     gameStateRef.current = 'idle';
     audioInputRef.current.drainOnsets();
+    pendingOnsetsRef.current = [];
 
     // Reset scoring + feedback
     scoringEngineRef.current.reset();
@@ -408,6 +435,7 @@ export function useGameEngine(config: GameEngineConfig): UseGameEngineReturn {
       loopConfig: loopConfigRef.current,
       timeSinceLastOnsetSec: null,
       lastOnsetMidi: null,
+      lastScoringMidi: null,
     });
   }, []);
 

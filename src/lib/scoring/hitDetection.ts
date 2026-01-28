@@ -36,7 +36,15 @@ export function pitchMatches(
   toleranceSemitones: number = PITCH_TOLERANCE_SEMITONES
 ): boolean {
   if (detectedMidi === null) return false;
-  return Math.abs(detectedMidi - expectedMidi) <= toleranceSemitones;
+  const delta = Math.abs(detectedMidi - expectedMidi);
+  if (delta <= toleranceSemitones) return true;
+
+  // Common pitch detector failure mode on guitar is octave errors due to strong harmonics.
+  const OCTAVE = 12;
+  return (
+    Math.abs(detectedMidi - (expectedMidi + OCTAVE)) <= toleranceSemitones ||
+    Math.abs(detectedMidi - (expectedMidi - OCTAVE)) <= toleranceSemitones
+  );
 }
 
 /**
@@ -75,24 +83,52 @@ export function findMatchingNotes(
   pendingNotes: RenderNote[],
   tolerances: TimingTolerances = DEFAULT_TIMING_TOLERANCES
 ): NoteMatchResult[] {
-  if (detectedMidi === null) return [];
-
   const matches: NoteMatchResult[] = [];
 
+  // Chords: treat a detected onset within the timing window as a chord "strum".
+  // Pitch detection is unreliable for chords; we score the whole chord by timing.
+  const chordGroups = new Map<string, RenderNote[]>();
   for (const note of pendingNotes) {
-    // Check timing window first (cheaper)
-    const offsetSec = detectedTimeSec - note.timeSec;
-    const offsetMs = offsetSec * 1000;
+    if (!note.isChord) continue;
+    const group = chordGroups.get(note.eventId);
+    if (group) group.push(note);
+    else chordGroups.set(note.eventId, [note]);
+  }
 
+  for (const chordNotes of chordGroups.values()) {
+    if (chordNotes.length === 0) continue;
+
+    const offsetSec = detectedTimeSec - chordNotes[0].timeSec;
+    const offsetMs = offsetSec * 1000;
     if (Math.abs(offsetMs) > tolerances.okMs) continue;
 
-    // Check pitch match
-    if (!pitchMatches(detectedMidi, note.midi)) continue;
-
-    // Classify timing
     const result = classifyTiming(offsetMs, tolerances);
-    if (result) {
-      matches.push({ note, offsetMs, result });
+    if (!result) continue;
+
+    for (const chordNote of chordNotes) {
+      matches.push({ note: chordNote, offsetMs, result });
+    }
+  }
+
+  // Single notes: require a pitch match.
+  if (detectedMidi !== null) {
+    for (const note of pendingNotes) {
+      if (note.isChord) continue;
+
+      // Check timing window first (cheaper)
+      const offsetSec = detectedTimeSec - note.timeSec;
+      const offsetMs = offsetSec * 1000;
+
+      if (Math.abs(offsetMs) > tolerances.okMs) continue;
+
+      // Check pitch match
+      if (!pitchMatches(detectedMidi, note.midi)) continue;
+
+      // Classify timing
+      const result = classifyTiming(offsetMs, tolerances);
+      if (result) {
+        matches.push({ note, offsetMs, result });
+      }
     }
   }
 

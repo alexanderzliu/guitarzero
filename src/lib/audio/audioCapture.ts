@@ -189,6 +189,14 @@ export class AudioCapture {
   }
 
   /**
+   * Get the currently configured input latency offset in seconds.
+   * This is used by gameplay to compensate onset timestamps.
+   */
+  getInputOffsetSec(): number {
+    return this.config.inputOffsetSec;
+  }
+
+  /**
    * Update configuration (requires restart)
    */
   updateConfig(config: Partial<AudioConfig>): void {

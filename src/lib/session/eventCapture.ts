@@ -14,7 +14,7 @@ export function createHitEvent(
   note: RenderNote,
   result: ScoreResult,
   offsetMs: number,
-  detectedMidi: MidiNote,
+  detectedMidi: MidiNote | null,
   currentTimeSec: number
 ): PlayEventRecord {
   return {
@@ -23,7 +23,7 @@ export function createHitEvent(
     timestampSec: currentTimeSec,
     timingOffsetMs: offsetMs,
     result,
-    detectedMidi,
+    ...(detectedMidi != null ? { detectedMidi } : {}),
     expectedMidi: note.midi,
     expectedTimeSec: note.timeSec,
   };
