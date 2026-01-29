@@ -50,8 +50,15 @@ function resolveDetectedMidi(params: {
   if (onset.midi != null && onset.clarity >= 0.6) return onset.midi;
 
   // If the current pitch sample is already after the onset, accept it even if we didn't
-  // have a full history match (e.g., history not populated yet).
-  if (currentPitch?.midi != null && currentPitch.timestampSec >= onset.timestampSec) {
+  // have a full history match (e.g., history not populated yet). However, we must bound
+  // this to avoid accepting a stale pitch that's temporally "after" the onset but still
+  // from the previous note (pitch detector hasn't re-locked to the new attack yet).
+  const MAX_CURRENT_PITCH_DELTA_SEC = 0.15;
+  if (
+    currentPitch?.midi != null &&
+    currentPitch.timestampSec >= onset.timestampSec &&
+    currentPitch.timestampSec <= onset.timestampSec + MAX_CURRENT_PITCH_DELTA_SEC
+  ) {
     return currentPitch.midi;
   }
 
