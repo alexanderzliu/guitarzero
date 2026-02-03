@@ -101,23 +101,16 @@ function App() {
           <div className="mt-6 mx-auto w-24 h-1 bg-[#dc2626] rounded shadow-[0_0_20px_rgba(220,38,38,0.5)]" />
         </header>
 
-        {/* Main Content Grid */}
+        {/* Main Content Grid - 2x2 layout for aligned cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column: Debug Panel + Tab Library */}
-          <div className="space-y-6">
-            <DebugPanel />
-            <TabList
-              tabs={tabs}
-              onSelectTab={handleSelectTab}
-              onImportTab={() => setView('tab-import')}
-            />
-          </div>
-
-          {/* Right Column: Calibration + Instructions */}
-          <div className="space-y-6">
-            <CalibrationCard onStartCalibration={() => setView('calibration')} />
-            <InstructionsCard />
-          </div>
+          <DebugPanel />
+          <CalibrationCard onStartCalibration={() => setView('calibration')} />
+          <TabList
+            tabs={tabs}
+            onSelectTab={handleSelectTab}
+            onImportTab={() => setView('tab-import')}
+          />
+          <InstructionsCard />
         </div>
 
         {/* Footer */}
