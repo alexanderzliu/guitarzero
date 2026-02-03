@@ -4,6 +4,10 @@ import { parseAndValidateTab, type ValidationError } from '../../lib/tabs/tabVal
 import { saveTab, generateTabId, StorageQuotaError } from '../../lib/storage/tabStorage';
 import { getTotalNotes, getTotalMeasures } from '../../lib/tabs/tabUtils';
 
+// ============================================================================
+// Tab Import Wizard - "Garage Film" Aesthetic
+// ============================================================================
+
 interface TabImportWizardProps {
   onComplete: (tab: Tab) => void;
   onCancel: () => void;
@@ -58,18 +62,20 @@ export function TabImportWizard({ onComplete, onCancel }: TabImportWizardProps) 
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-8">
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-8">
       <div className="max-w-3xl w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Import Tab</h1>
-          <p className="text-slate-400">
+          <h1 className="font-display text-4xl text-[#f5f0e6] tracking-wide mb-2">
+            IMPORT TAB
+          </h1>
+          <p className="text-[#78716c]">
             Paste your tab JSON to import it into the app
           </p>
         </div>
 
         {/* Main Content Card */}
-        <div className="bg-slate-800 rounded-xl p-6 shadow-xl">
+        <div className="bg-[#1a1614] border border-[#292524] rounded p-6">
           {phase === 'paste' && (
             <PastePhase
               jsonInput={jsonInput}
@@ -90,8 +96,8 @@ export function TabImportWizard({ onComplete, onCancel }: TabImportWizardProps) 
 
           {phase === 'saving' && (
             <div className="py-12 text-center space-y-4">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-slate-300">Saving tab...</p>
+              <div className="w-12 h-12 border-4 border-[#dc2626] border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-[#78716c]">Saving tab...</p>
             </div>
           )}
         </div>
@@ -116,8 +122,8 @@ function PastePhase({ jsonInput, setJsonInput, errors, onValidate, onCancel }: P
   return (
     <div className="space-y-6">
       {/* Instructions */}
-      <div className="bg-slate-700 rounded-lg p-4">
-        <p className="text-slate-300 text-sm">
+      <div className="bg-[#0a0a0a] border border-[#292524] rounded p-4">
+        <p className="text-[#d6d3cd] text-sm">
           Paste a valid Tab JSON object below. The format should include title, artist,
           tempo map, sections, measures, and note events.
         </p>
@@ -125,9 +131,9 @@ function PastePhase({ jsonInput, setJsonInput, errors, onValidate, onCancel }: P
 
       {/* JSON Input */}
       <div className="space-y-2">
-        <label className="text-sm text-slate-400">Tab JSON</label>
+        <label className="text-sm text-[#78716c]">Tab JSON</label>
         <textarea
-          className="w-full h-64 bg-slate-700 text-slate-200 rounded-lg px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          className="w-full h-64 bg-[#0a0a0a] text-[#f5f0e6] border border-[#292524] rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-[#d97706] focus:shadow-[0_0_15px_rgba(217,119,6,0.3)] resize-none transition-all"
           placeholder='{"id": "...", "title": "Song Name", "artist": "Artist", ...}'
           value={jsonInput}
           onChange={(e) => setJsonInput(e.target.value)}
@@ -137,12 +143,12 @@ function PastePhase({ jsonInput, setJsonInput, errors, onValidate, onCancel }: P
 
       {/* Validation Errors */}
       {errors.length > 0 && (
-        <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 max-h-48 overflow-y-auto">
-          <p className="text-red-300 font-medium mb-2">Validation Errors ({errors.length})</p>
-          <ul className="text-red-400 text-sm space-y-1">
+        <div className="bg-[#0a0a0a] border border-[#dc2626] rounded p-4 max-h-48 overflow-y-auto">
+          <p className="text-[#dc2626] font-semibold mb-2">Validation Errors ({errors.length})</p>
+          <ul className="text-[#dc2626]/80 text-sm space-y-1">
             {errors.map((error, i) => (
               <li key={i} className="font-mono">
-                {error.path && <span className="text-red-500">{error.path}: </span>}
+                {error.path && <span className="text-[#dc2626]">{error.path}: </span>}
                 {error.message}
               </li>
             ))}
@@ -152,10 +158,10 @@ function PastePhase({ jsonInput, setJsonInput, errors, onValidate, onCancel }: P
 
       {/* Sample Format Link */}
       <details className="text-sm">
-        <summary className="text-blue-400 cursor-pointer hover:text-blue-300">
+        <summary className="text-[#d97706] cursor-pointer hover:text-[#fbbf24] transition-colors">
           Show example format
         </summary>
-        <pre className="mt-2 bg-slate-700 rounded-lg p-3 text-slate-300 text-xs overflow-x-auto">
+        <pre className="mt-2 bg-[#0a0a0a] border border-[#292524] rounded p-3 text-[#78716c] text-xs overflow-x-auto">
 {`{
   "id": "example-tab-1",
   "title": "Simple Song",
@@ -187,14 +193,14 @@ function PastePhase({ jsonInput, setJsonInput, errors, onValidate, onCancel }: P
       <div className="flex gap-3 pt-4">
         <button
           onClick={onCancel}
-          className="flex-1 py-2 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+          className="flex-1 py-2 px-4 bg-[#292524] hover:bg-[#1a1614] border border-[#292524] hover:border-[#78716c] text-[#78716c] hover:text-[#f5f0e6] rounded transition-all"
         >
           Cancel
         </button>
         <button
           onClick={onValidate}
           disabled={!jsonInput.trim()}
-          className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+          className="flex-1 py-2 px-4 bg-[#dc2626] hover:bg-[#ef4444] hover:shadow-[0_0_20px_rgba(220,38,38,0.5)] disabled:bg-[#991b1b] disabled:opacity-50 text-[#f5f0e6] rounded font-semibold transition-all"
         >
           Validate & Preview
         </button>
@@ -217,58 +223,58 @@ function PreviewPhase({ tab, onSave, onBack }: PreviewPhaseProps) {
     <div className="space-y-6">
       {/* Success Header */}
       <div className="text-center">
-        <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-16 h-16 bg-[#dc2626] rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_30px_rgba(220,38,38,0.5)]">
+          <svg className="w-8 h-8 text-[#f5f0e6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="text-xl font-bold text-white">Tab Validated Successfully</h2>
+        <h2 className="font-display text-2xl text-[#f5f0e6] tracking-wide">TAB VALIDATED</h2>
       </div>
 
       {/* Tab Info */}
-      <div className="bg-slate-700 rounded-lg p-4 space-y-3">
+      <div className="bg-[#0a0a0a] border border-[#292524] rounded p-4 space-y-3">
         <div className="flex justify-between">
-          <span className="text-slate-400">Title</span>
-          <span className="text-white font-medium">{tab.title}</span>
+          <span className="text-[#78716c]">Title</span>
+          <span className="text-[#f5f0e6] font-semibold">{tab.title}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-slate-400">Artist</span>
-          <span className="text-white">{tab.artist || '(unknown)'}</span>
+          <span className="text-[#78716c]">Artist</span>
+          <span className="text-[#f5f0e6]">{tab.artist || '(unknown)'}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-slate-400">Tempo</span>
-          <span className="text-white">{tab.tempoMap[0]?.bpm || '?'} BPM</span>
+          <span className="text-[#78716c]">Tempo</span>
+          <span className="text-[#f5f0e6] font-mono">{tab.tempoMap[0]?.bpm || '?'} BPM</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-slate-400">Time Signature</span>
-          <span className="text-white">{tab.timeSignature[0]}/{tab.timeSignature[1]}</span>
+          <span className="text-[#78716c]">Time Signature</span>
+          <span className="text-[#f5f0e6] font-mono">{tab.timeSignature[0]}/{tab.timeSignature[1]}</span>
         </div>
       </div>
 
       {/* Statistics */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-slate-700 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-blue-400">{tab.sections.length}</div>
-          <div className="text-xs text-slate-400">Sections</div>
+        <div className="bg-[#0a0a0a] border border-[#292524] rounded p-3 text-center">
+          <div className="text-2xl font-display text-[#dc2626]">{tab.sections.length}</div>
+          <div className="text-xs text-[#57534e]">Sections</div>
         </div>
-        <div className="bg-slate-700 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-green-400">{totalMeasures}</div>
-          <div className="text-xs text-slate-400">Measures</div>
+        <div className="bg-[#0a0a0a] border border-[#292524] rounded p-3 text-center">
+          <div className="text-2xl font-display text-[#d97706]">{totalMeasures}</div>
+          <div className="text-xs text-[#57534e]">Measures</div>
         </div>
-        <div className="bg-slate-700 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-purple-400">{totalNotes}</div>
-          <div className="text-xs text-slate-400">Notes</div>
+        <div className="bg-[#0a0a0a] border border-[#292524] rounded p-3 text-center">
+          <div className="text-2xl font-display text-[#f5f0e6]">{totalNotes}</div>
+          <div className="text-xs text-[#57534e]">Notes</div>
         </div>
       </div>
 
       {/* Sections Preview */}
       <div className="space-y-2">
-        <h3 className="text-sm text-slate-400">Sections</h3>
-        <div className="bg-slate-700 rounded-lg divide-y divide-slate-600">
+        <h3 className="text-sm text-[#78716c]">Sections</h3>
+        <div className="bg-[#0a0a0a] border border-[#292524] rounded divide-y divide-[#292524]">
           {tab.sections.map((section) => (
             <div key={section.id} className="px-4 py-2 flex justify-between items-center">
-              <span className="text-white">{section.name || '(unnamed)'}</span>
-              <span className="text-slate-400 text-sm">
+              <span className="text-[#f5f0e6]">{section.name || '(unnamed)'}</span>
+              <span className="text-[#57534e] text-sm font-mono">
                 {section.measures.length} measures
               </span>
             </div>
@@ -280,13 +286,13 @@ function PreviewPhase({ tab, onSave, onBack }: PreviewPhaseProps) {
       <div className="flex gap-3 pt-4">
         <button
           onClick={onBack}
-          className="flex-1 py-2 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+          className="flex-1 py-2 px-4 bg-[#292524] hover:bg-[#1a1614] border border-[#292524] hover:border-[#78716c] text-[#78716c] hover:text-[#f5f0e6] rounded transition-all"
         >
           Back
         </button>
         <button
           onClick={onSave}
-          className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+          className="flex-1 py-2 px-4 bg-[#dc2626] hover:bg-[#ef4444] hover:shadow-[0_0_20px_rgba(220,38,38,0.5)] text-[#f5f0e6] rounded font-semibold transition-all"
         >
           Save Tab
         </button>
