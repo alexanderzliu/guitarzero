@@ -2,7 +2,7 @@ import type { SessionMetadata, ProblemSpot } from '../../lib/session/sessionType
 import type { SessionStats } from '../../hooks/useSessionHistory';
 
 // ============================================================================
-// Session History - Display Past Sessions for a Tab
+// Session History - "Garage Film" Aesthetic
 // ============================================================================
 
 interface SessionHistoryProps {
@@ -20,10 +20,10 @@ export function SessionHistory({
 }: SessionHistoryProps) {
   if (isLoading) {
     return (
-      <div className="bg-slate-800 rounded-xl p-6">
-        <h2 className="text-lg font-bold text-slate-200 mb-4">Session History</h2>
+      <div className="bg-[#1a1614] border border-[#292524] rounded p-6">
+        <h2 className="font-display text-lg text-[#f5f0e6] tracking-wide mb-4">SESSION HISTORY</h2>
         <div className="flex items-center justify-center py-8">
-          <div className="animate-pulse text-slate-500">Loading sessions...</div>
+          <div className="animate-pulse text-[#57534e]">Loading sessions...</div>
         </div>
       </div>
     );
@@ -31,9 +31,9 @@ export function SessionHistory({
 
   if (sessions.length === 0) {
     return (
-      <div className="bg-slate-800 rounded-xl p-6">
-        <h2 className="text-lg font-bold text-slate-200 mb-4">Session History</h2>
-        <p className="text-slate-400 text-center py-8">
+      <div className="bg-[#1a1614] border border-[#292524] rounded p-6">
+        <h2 className="font-display text-lg text-[#f5f0e6] tracking-wide mb-4">SESSION HISTORY</h2>
+        <p className="text-[#78716c] text-center py-8">
           No sessions yet. Play this tab to start tracking your progress!
         </p>
       </div>
@@ -41,18 +41,18 @@ export function SessionHistory({
   }
 
   return (
-    <div className="bg-slate-800 rounded-xl p-6 space-y-6">
+    <div className="bg-[#1a1614] border border-[#292524] rounded p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-slate-200">Session History</h2>
-        <span className="text-sm text-slate-500">
+        <h2 className="font-display text-lg text-[#f5f0e6] tracking-wide">SESSION HISTORY</h2>
+        <span className="text-sm text-[#57534e] font-mono">
           {stats.totalSessions} session{stats.totalSessions !== 1 ? 's' : ''}
         </span>
       </div>
 
       {/* Stats Summary */}
       <div className="grid grid-cols-3 gap-3">
-        <StatBox label="Best Score" value={stats.bestScore.toLocaleString()} />
+        <StatBox label="Best Score" value={stats.bestScore.toLocaleString()} highlight />
         <StatBox label="Avg Accuracy" value={`${stats.averageAccuracy}%`} />
         <StatBox
           label="Total Sessions"
@@ -67,7 +67,7 @@ export function SessionHistory({
 
       {/* Session List */}
       <div className="space-y-2">
-        <h3 className="text-sm font-medium text-slate-400">Recent Sessions</h3>
+        <h3 className="text-sm text-[#78716c]">Recent Sessions</h3>
         {sessions.map((session) => (
           <SessionItem
             key={session.id}
@@ -87,13 +87,16 @@ export function SessionHistory({
 interface StatBoxProps {
   label: string;
   value: string;
+  highlight?: boolean;
 }
 
-function StatBox({ label, value }: StatBoxProps) {
+function StatBox({ label, value, highlight }: StatBoxProps) {
   return (
-    <div className="bg-slate-700 rounded-lg px-3 py-2 text-center">
-      <div className="text-lg font-bold text-white tabular-nums">{value}</div>
-      <div className="text-xs text-slate-400">{label}</div>
+    <div className="bg-[#0a0a0a] border border-[#292524] rounded px-3 py-2 text-center">
+      <div className={`text-lg font-mono font-bold tabular-nums ${highlight ? 'text-[#d97706]' : 'text-[#f5f0e6]'}`}>
+        {value}
+      </div>
+      <div className="text-xs text-[#57534e]">{label}</div>
     </div>
   );
 }
@@ -108,19 +111,19 @@ function SessionItem({ session, onDelete }: SessionItemProps) {
   const dateStr = formatDate(session.finishedAt);
 
   return (
-    <div className="bg-slate-700 rounded-lg px-4 py-3 flex items-center justify-between group">
+    <div className="bg-[#0a0a0a] border border-[#292524] rounded px-4 py-3 flex items-center justify-between group hover:border-[#78716c] transition-colors">
       <div className="flex items-center gap-4">
         {/* Grade */}
-        <span className={`text-2xl font-bold ${gradeColor} w-8`}>
+        <span className={`text-2xl font-display ${gradeColor} w-8`}>
           {session.grade}
         </span>
 
         {/* Stats */}
         <div>
-          <div className="text-white font-medium tabular-nums">
+          <div className="text-[#f5f0e6] font-mono font-semibold tabular-nums">
             {session.score.toLocaleString()} pts
           </div>
-          <div className="text-slate-400 text-sm">
+          <div className="text-[#78716c] text-sm font-mono">
             {session.accuracy}% accuracy · {session.maxStreak} max streak
           </div>
         </div>
@@ -129,9 +132,9 @@ function SessionItem({ session, onDelete }: SessionItemProps) {
       {/* Right side */}
       <div className="flex items-center gap-3">
         <div className="text-right text-sm">
-          <div className="text-slate-400">{dateStr}</div>
+          <div className="text-[#78716c]">{dateStr}</div>
           {session.playbackSpeed < 1 && (
-            <div className="text-slate-500">{session.playbackSpeed}x speed</div>
+            <div className="text-[#57534e] font-mono">{session.playbackSpeed}x speed</div>
           )}
         </div>
 
@@ -139,7 +142,7 @@ function SessionItem({ session, onDelete }: SessionItemProps) {
         {onDelete && (
           <button
             onClick={onDelete}
-            className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-400 transition-all"
+            className="opacity-0 group-hover:opacity-100 p-1 text-[#57534e] hover:text-[#dc2626] transition-all"
             title="Delete session"
           >
             <svg
@@ -168,18 +171,18 @@ interface ProblemSpotsSectionProps {
 
 function ProblemSpotsSection({ problemSpots }: ProblemSpotsSectionProps) {
   return (
-    <div className="bg-slate-700/50 rounded-lg p-4">
-      <h3 className="text-sm font-medium text-slate-300 mb-2">
+    <div className="bg-[#0a0a0a] border border-[#292524] rounded p-4">
+      <h3 className="text-sm font-semibold text-[#d6d3cd] mb-2">
         Problem Spots
       </h3>
-      <p className="text-xs text-slate-500 mb-3">
+      <p className="text-xs text-[#57534e] mb-3">
         Notes you frequently miss - practice these sections!
       </p>
       <div className="flex flex-wrap gap-2">
         {problemSpots.map((spot) => (
           <div
             key={spot.eventId}
-            className="bg-red-900/30 text-red-400 text-xs px-2 py-1 rounded"
+            className="bg-[#7f1d1d]/30 border border-[#dc2626]/30 text-[#dc2626] text-xs font-mono px-2 py-1 rounded"
             title={`Missed ${spot.missCount}/${spot.totalAttempts} times (${Math.round(spot.missRate * 100)}%)`}
           >
             Note {spot.eventId.slice(0, 8)}... ({Math.round(spot.missRate * 100)}%
@@ -194,17 +197,17 @@ function ProblemSpotsSection({ problemSpots }: ProblemSpotsSectionProps) {
 function getGradeColor(grade: string): string {
   switch (grade) {
     case 'S':
-      return 'text-yellow-400';
+      return 'text-[#fbbf24]'; // Gold - perfect
     case 'A':
-      return 'text-green-400';
+      return 'text-[#f5f0e6]'; // Cream - excellent
     case 'B':
-      return 'text-blue-400';
+      return 'text-[#d97706]'; // Amber - good
     case 'C':
-      return 'text-purple-400';
+      return 'text-[#78716c]'; // Smoke - okay
     case 'D':
-      return 'text-orange-400';
+      return 'text-[#57534e]'; // Smoke dim - poor
     default:
-      return 'text-red-400';
+      return 'text-[#dc2626]'; // Blood red - fail
   }
 }
 
