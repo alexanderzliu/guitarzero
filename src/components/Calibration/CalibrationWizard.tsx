@@ -1,6 +1,10 @@
 import { useCalibration } from '../../hooks/useCalibration';
 import { loadCalibration } from '../../lib/storage/calibrationStorage';
 
+// ============================================================================
+// Calibration Wizard - "Garage Film" Aesthetic
+// ============================================================================
+
 interface CalibrationWizardProps {
   onComplete: () => void;
   onCancel: () => void;
@@ -21,18 +25,20 @@ export function CalibrationWizard({ onComplete, onCancel }: CalibrationWizardPro
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-8">
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-8">
       <div className="max-w-xl w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Latency Calibration</h1>
-          <p className="text-slate-400">
+          <h1 className="font-display text-4xl text-[#f5f0e6] tracking-wide mb-2">
+            LATENCY CALIBRATION
+          </h1>
+          <p className="text-[#78716c]">
             Calibrate your audio input to ensure accurate timing detection
           </p>
         </div>
 
         {/* Main Content Card */}
-        <div className="bg-slate-800 rounded-xl p-6 shadow-xl">
+        <div className="bg-[#1a1614] border border-[#292524] rounded p-6">
           {calibration.phase === 'idle' && (
             <IdlePhase
               calibration={calibration}
@@ -84,14 +90,14 @@ function IdlePhase({ calibration, onCancel }: IdlePhaseProps) {
   return (
     <div className="space-y-6">
       {/* Instructions */}
-      <div className="space-y-4 text-slate-300">
+      <div className="space-y-4 text-[#d6d3cd]">
         <p>
           This wizard will measure the latency of your audio input so timing
           detection is accurate during gameplay.
         </p>
-        <div className="bg-slate-700 rounded-lg p-4 space-y-2">
-          <p className="font-medium text-white">How it works:</p>
-          <ol className="list-decimal list-inside space-y-1 text-sm">
+        <div className="bg-[#0a0a0a] border border-[#292524] rounded p-4 space-y-2">
+          <p className="font-semibold text-[#f5f0e6]">How it works:</p>
+          <ol className="list-decimal list-inside space-y-1 text-sm text-[#78716c]">
             <li>Connect your guitar and start audio capture</li>
             <li>Watch for the visual flash (8 beats)</li>
             <li>Strum your guitar exactly when each flash appears</li>
@@ -102,11 +108,11 @@ function IdlePhase({ calibration, onCancel }: IdlePhaseProps) {
 
       {/* Existing Calibration Notice */}
       {existingCalibration && (
-        <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
-          <p className="text-blue-300 text-sm">
-            Current calibration: <span className="font-mono">{(existingCalibration.offsetSec * 1000).toFixed(1)}ms</span>
+        <div className="bg-[#0a0a0a] border border-[#d97706] rounded p-3">
+          <p className="text-[#d97706] text-sm">
+            Current calibration: <span className="font-mono text-[#f5f0e6]">{(existingCalibration.offsetSec * 1000).toFixed(1)}ms</span>
             <br />
-            <span className="text-blue-400/70 text-xs">
+            <span className="text-[#92400e] text-xs">
               Calibrated {new Date(existingCalibration.calibratedAt).toLocaleDateString()}
             </span>
           </p>
@@ -115,9 +121,9 @@ function IdlePhase({ calibration, onCancel }: IdlePhaseProps) {
 
       {/* Device Selection */}
       <div className="space-y-2">
-        <label className="text-sm text-slate-400">Audio Input Device</label>
+        <label className="text-sm text-[#78716c]">Audio Input Device</label>
         <select
-          className="w-full bg-slate-700 text-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-[#0a0a0a] text-[#f5f0e6] border border-[#292524] rounded px-3 py-2 focus:outline-none focus:border-[#d97706] focus:shadow-[0_0_15px_rgba(217,119,6,0.3)] transition-all"
           value={calibration.selectedDeviceId || ''}
           onChange={(e) => calibration.selectDevice(e.target.value || null)}
           disabled={calibration.isAudioRunning}
@@ -136,20 +142,20 @@ function IdlePhase({ calibration, onCancel }: IdlePhaseProps) {
         <button
           onClick={calibration.startAudio}
           disabled={calibration.isAudioStarting}
-          className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+          className="w-full py-3 px-4 bg-[#292524] hover:bg-[#dc2626] hover:shadow-[0_0_20px_rgba(220,38,38,0.5)] disabled:bg-[#292524] disabled:opacity-50 text-[#f5f0e6] rounded font-semibold transition-all"
         >
           {calibration.isAudioStarting ? 'Starting Audio...' : 'Start Audio'}
         </button>
       ) : (
-        <div className="flex items-center gap-3 p-3 bg-green-900/30 border border-green-700 rounded-lg">
-          <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-green-300">Audio is running</span>
+        <div className="flex items-center gap-3 p-3 bg-[#0a0a0a] border border-[#d97706] rounded">
+          <span className="w-3 h-3 bg-[#d97706] rounded-full animate-pulse shadow-[0_0_10px_rgba(217,119,6,0.6)]" />
+          <span className="text-[#d97706]">Audio is running</span>
         </div>
       )}
 
       {/* Audio Error */}
       {calibration.audioError && (
-        <div className="p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
+        <div className="p-3 bg-[#0a0a0a] border border-[#dc2626] rounded text-[#dc2626] text-sm">
           {calibration.audioError}
         </div>
       )}
@@ -158,14 +164,14 @@ function IdlePhase({ calibration, onCancel }: IdlePhaseProps) {
       <div className="flex gap-3 pt-4">
         <button
           onClick={onCancel}
-          className="flex-1 py-2 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+          className="flex-1 py-2 px-4 bg-[#292524] hover:bg-[#1a1614] border border-[#292524] hover:border-[#78716c] text-[#78716c] hover:text-[#f5f0e6] rounded transition-all"
         >
           Cancel
         </button>
         <button
           onClick={calibration.startCalibration}
           disabled={!calibration.isAudioRunning}
-          className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+          className="flex-1 py-2 px-4 bg-[#dc2626] hover:bg-[#ef4444] hover:shadow-[0_0_20px_rgba(220,38,38,0.5)] disabled:bg-[#991b1b] disabled:opacity-50 text-[#f5f0e6] rounded font-semibold transition-all"
         >
           Begin Calibration
         </button>
@@ -186,10 +192,10 @@ function ActivePhase({ calibration }: ActivePhaseProps) {
     <div className="space-y-8 py-4">
       {/* Phase Indicator */}
       <div className="text-center">
-        <p className="text-slate-400 text-sm mb-2">
+        <p className="text-[#78716c] text-sm mb-2">
           {isCountdown ? 'Get ready...' : 'Strum on each flash!'}
         </p>
-        <p className="text-6xl font-bold text-white font-mono">
+        <p className="text-6xl font-display text-[#f5f0e6] tracking-wide">
           {isCountdown ? calibration.countdownValue : `${calibration.currentBeat + 1}/${totalBeats}`}
         </p>
       </div>
@@ -199,8 +205,8 @@ function ActivePhase({ calibration }: ActivePhaseProps) {
         <div
           className={`w-32 h-32 rounded-full transition-all duration-75 ${
             calibration.beatActive
-              ? 'bg-yellow-400 shadow-[0_0_60px_20px_rgba(250,204,21,0.5)] scale-110'
-              : 'bg-slate-700'
+              ? 'bg-[#fbbf24] shadow-[0_0_60px_20px_rgba(251,191,36,0.5)] scale-110'
+              : 'bg-[#292524]'
           }`}
         />
       </div>
@@ -208,13 +214,13 @@ function ActivePhase({ calibration }: ActivePhaseProps) {
       {/* Progress */}
       {!isCountdown && (
         <div className="space-y-2">
-          <div className="flex justify-between text-xs text-slate-400">
+          <div className="flex justify-between text-xs text-[#78716c]">
             <span>Progress</span>
-            <span>{calibration.collectedSamples} strums detected</span>
+            <span className="font-mono">{calibration.collectedSamples} strums detected</span>
           </div>
-          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+          <div className="h-2 bg-[#0a0a0a] rounded overflow-hidden">
             <div
-              className="h-full bg-blue-500 transition-all duration-300"
+              className="h-full bg-[#dc2626] transition-all duration-300"
               style={{ width: `${((calibration.currentBeat + 1) / totalBeats) * 100}%` }}
             />
           </div>
@@ -224,7 +230,7 @@ function ActivePhase({ calibration }: ActivePhaseProps) {
       {/* Cancel Button */}
       <button
         onClick={calibration.cancelCalibration}
-        className="w-full py-2 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+        className="w-full py-2 px-4 bg-[#292524] hover:bg-[#1a1614] border border-[#292524] hover:border-[#78716c] text-[#78716c] hover:text-[#f5f0e6] rounded transition-all"
       >
         Cancel
       </button>
@@ -235,8 +241,8 @@ function ActivePhase({ calibration }: ActivePhaseProps) {
 function ProcessingPhase() {
   return (
     <div className="py-12 text-center space-y-4">
-      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
-      <p className="text-slate-300">Calculating offset...</p>
+      <div className="w-12 h-12 border-4 border-[#dc2626] border-t-transparent rounded-full animate-spin mx-auto" />
+      <p className="text-[#78716c]">Calculating offset...</p>
     </div>
   );
 }
@@ -256,37 +262,37 @@ function ResultsPhase({ calibration, onSave, onRetry }: ResultsPhaseProps) {
     <div className="space-y-6">
       {/* Success Header */}
       <div className="text-center">
-        <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-16 h-16 bg-[#dc2626] rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_30px_rgba(220,38,38,0.5)]">
+          <svg className="w-8 h-8 text-[#f5f0e6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="text-xl font-bold text-white">Calibration Complete</h2>
-        <p className="text-slate-400 text-sm mt-1">
+        <h2 className="font-display text-2xl text-[#f5f0e6] tracking-wide">CALIBRATION COMPLETE</h2>
+        <p className="text-[#78716c] text-sm mt-1 font-mono">
           {calibration.collectedSamples} strums analyzed
         </p>
       </div>
 
       {/* Results */}
-      <div className="bg-slate-700 rounded-lg p-4 space-y-3">
+      <div className="bg-[#0a0a0a] border border-[#292524] rounded p-4 space-y-3">
         <div className="flex justify-between">
-          <span className="text-slate-400">Detected latency:</span>
-          <span className="text-white font-mono">{calculatedMs.toFixed(1)} ms</span>
+          <span className="text-[#78716c]">Detected latency:</span>
+          <span className="text-[#f5f0e6] font-mono">{calculatedMs.toFixed(1)} ms</span>
         </div>
         {adjustmentMs !== 0 && (
           <div className="flex justify-between">
-            <span className="text-slate-400">Manual adjustment:</span>
-            <span className="text-white font-mono">{adjustmentMs > 0 ? '+' : ''}{adjustmentMs.toFixed(1)} ms</span>
+            <span className="text-[#78716c]">Manual adjustment:</span>
+            <span className="text-[#f5f0e6] font-mono">{adjustmentMs > 0 ? '+' : ''}{adjustmentMs.toFixed(1)} ms</span>
           </div>
         )}
-        <div className="flex justify-between border-t border-slate-600 pt-2">
-          <span className="text-slate-300 font-medium">Final offset:</span>
-          <span className="text-green-400 font-mono font-bold">{finalMs.toFixed(1)} ms</span>
+        <div className="flex justify-between border-t border-[#292524] pt-2">
+          <span className="text-[#d6d3cd] font-semibold">Final offset:</span>
+          <span className="text-[#d97706] font-mono font-bold">{finalMs.toFixed(1)} ms</span>
         </div>
       </div>
 
       {/* Explanation */}
-      <p className="text-slate-400 text-sm">
+      <p className="text-[#78716c] text-sm">
         {finalMs > 0
           ? `Your input is detected ${Math.abs(finalMs).toFixed(0)}ms late. This will be compensated during gameplay.`
           : finalMs < 0
@@ -297,8 +303,8 @@ function ResultsPhase({ calibration, onSave, onRetry }: ResultsPhaseProps) {
       {/* Manual Fine-Tune Slider */}
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
-          <span className="text-slate-400">Fine-tune adjustment</span>
-          <span className="text-slate-300 font-mono">{adjustmentMs > 0 ? '+' : ''}{adjustmentMs.toFixed(0)} ms</span>
+          <span className="text-[#78716c]">Fine-tune adjustment</span>
+          <span className="text-[#f5f0e6] font-mono">{adjustmentMs > 0 ? '+' : ''}{adjustmentMs.toFixed(0)} ms</span>
         </div>
         <input
           type="range"
@@ -307,9 +313,9 @@ function ResultsPhase({ calibration, onSave, onRetry }: ResultsPhaseProps) {
           step={1}
           value={adjustmentMs}
           onChange={(e) => calibration.setManualAdjustment(Number(e.target.value) / 1000)}
-          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          className="w-full h-2 bg-[#0a0a0a] rounded appearance-none cursor-pointer accent-[#dc2626]"
         />
-        <div className="flex justify-between text-xs text-slate-500">
+        <div className="flex justify-between text-xs text-[#57534e]">
           <span>-50ms (earlier)</span>
           <span>+50ms (later)</span>
         </div>
@@ -319,13 +325,13 @@ function ResultsPhase({ calibration, onSave, onRetry }: ResultsPhaseProps) {
       <div className="flex gap-3 pt-4">
         <button
           onClick={onRetry}
-          className="flex-1 py-2 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+          className="flex-1 py-2 px-4 bg-[#292524] hover:bg-[#1a1614] border border-[#292524] hover:border-[#78716c] text-[#78716c] hover:text-[#f5f0e6] rounded transition-all"
         >
           Retry
         </button>
         <button
           onClick={onSave}
-          className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+          className="flex-1 py-2 px-4 bg-[#dc2626] hover:bg-[#ef4444] hover:shadow-[0_0_20px_rgba(220,38,38,0.5)] text-[#f5f0e6] rounded font-semibold transition-all"
         >
           Save & Continue
         </button>
@@ -345,23 +351,23 @@ function ErrorPhase({ error, onRetry, onCancel }: ErrorPhaseProps) {
     <div className="space-y-6 py-4">
       {/* Error Icon */}
       <div className="text-center">
-        <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-16 h-16 bg-[#7f1d1d] rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-[#dc2626]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </div>
-        <h2 className="text-xl font-bold text-white">Calibration Failed</h2>
+        <h2 className="font-display text-2xl text-[#f5f0e6] tracking-wide">CALIBRATION FAILED</h2>
       </div>
 
       {/* Error Message */}
-      <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
-        <p className="text-red-300">{error}</p>
+      <div className="bg-[#0a0a0a] border border-[#dc2626] rounded p-4">
+        <p className="text-[#dc2626]">{error}</p>
       </div>
 
       {/* Tips */}
-      <div className="bg-slate-700 rounded-lg p-4">
-        <p className="text-slate-300 font-medium mb-2">Tips for better results:</p>
-        <ul className="text-slate-400 text-sm space-y-1">
+      <div className="bg-[#0a0a0a] border border-[#292524] rounded p-4">
+        <p className="text-[#f5f0e6] font-semibold mb-2">Tips for better results:</p>
+        <ul className="text-[#78716c] text-sm space-y-1">
           <li>• Strum a single clear note on each flash</li>
           <li>• Use a clean guitar tone (less distortion)</li>
           <li>• Make sure your guitar volume is up</li>
@@ -373,13 +379,13 @@ function ErrorPhase({ error, onRetry, onCancel }: ErrorPhaseProps) {
       <div className="flex gap-3">
         <button
           onClick={onCancel}
-          className="flex-1 py-2 px-4 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+          className="flex-1 py-2 px-4 bg-[#292524] hover:bg-[#1a1614] border border-[#292524] hover:border-[#78716c] text-[#78716c] hover:text-[#f5f0e6] rounded transition-all"
         >
           Cancel
         </button>
         <button
           onClick={onRetry}
-          className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+          className="flex-1 py-2 px-4 bg-[#dc2626] hover:bg-[#ef4444] hover:shadow-[0_0_20px_rgba(220,38,38,0.5)] text-[#f5f0e6] rounded font-semibold transition-all"
         >
           Try Again
         </button>
