@@ -9,6 +9,10 @@ import { loadCalibration } from './lib/storage/calibrationStorage';
 import { listTabs, loadTab, deleteTab, type TabMetadata } from './lib/storage/tabStorage';
 import type { Tab } from './types';
 
+// ============================================================================
+// GuitarZero - "Garage Film" Aesthetic
+// ============================================================================
+
 type AppView = 'main' | 'calibration' | 'tab-import' | 'tab-preview' | 'game';
 
 function App() {
@@ -17,7 +21,7 @@ function App() {
   const [selectedTab, setSelectedTab] = useState<Tab | null>(null);
 
   const handleTabImported = (tab: Tab) => {
-    setTabs(listTabs()); // Refresh tab list
+    setTabs(listTabs());
     setSelectedTab(tab);
     setView('tab-preview');
   };
@@ -83,18 +87,24 @@ function App() {
 
   // Main view
   return (
-    <div className="min-h-screen bg-slate-900 p-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        {/* Header */}
-        <header className="text-center">
-          <h1 className="text-4xl font-bold text-white mb-2">Guitar Practice</h1>
-          <p className="text-slate-400">Real-time guitar training with pitch detection</p>
+    <div className="min-h-screen bg-[#0a0a0a] p-8">
+      <div className="max-w-5xl mx-auto space-y-8">
+        {/* Header - Bold, poster-style */}
+        <header className="text-center py-8">
+          <h1 className="font-display text-6xl text-[#f5f0e6] tracking-wide mb-3">
+            GUITARZERO
+          </h1>
+          <p className="text-[#78716c] text-lg">
+            Real-time guitar training with pitch detection
+          </p>
+          {/* Subtle red line accent */}
+          <div className="mt-6 mx-auto w-24 h-1 bg-[#dc2626] rounded shadow-[0_0_20px_rgba(220,38,38,0.5)]" />
         </header>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Column: Debug Panel + Tab Library */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             <DebugPanel />
             <TabList
               tabs={tabs}
@@ -104,92 +114,106 @@ function App() {
           </div>
 
           {/* Right Column: Calibration + Instructions */}
-          <div className="space-y-4">
-            {/* Calibration Card */}
+          <div className="space-y-6">
             <CalibrationCard onStartCalibration={() => setView('calibration')} />
-
-            {/* Instructions Card */}
-            <div className="bg-slate-800 rounded-lg p-4">
-              <h2 className="text-lg font-bold text-slate-200 mb-4">Instructions</h2>
-              <div className="text-slate-400 text-sm space-y-3">
-                <p>
-                  1. Connect your guitar to your computer via USB (Fender Mustang LT25)
-                </p>
-                <p>
-                  2. Select the audio input device from the dropdown
-                </p>
-                <p>
-                  3. Click "Start Audio" to begin pitch detection
-                </p>
-                <p>
-                  4. Import a tab and start practicing!
-                </p>
-                <div className="mt-4 p-3 bg-slate-700 rounded">
-                  <p className="text-xs text-slate-500">
-                    Tip: For best results, make sure your amp's USB output is set as the audio
-                    input. The detection works best with clean, sustained notes.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <InstructionsCard />
           </div>
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-slate-500 text-sm">
-          Phase 3: Tab Display & Playhead
+        <footer className="text-center text-[#57534e] text-sm font-mono pt-8">
+          v0.3 — Tab Display & Playhead
         </footer>
       </div>
     </div>
   );
 }
 
+// ============================================================================
+// Cards
+// ============================================================================
+
 interface CalibrationCardProps {
   onStartCalibration: () => void;
 }
 
 function CalibrationCard({ onStartCalibration }: CalibrationCardProps) {
-  const calibration = loadCalibration(null); // Check default device
+  const calibration = loadCalibration(null);
 
   return (
-    <div className="bg-slate-800 rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-bold text-slate-200">Latency Calibration</h2>
+    <div className="bg-[#1a1614] border border-[#292524] rounded p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-display text-xl text-[#f5f0e6] tracking-wide">
+          LATENCY CALIBRATION
+        </h2>
         {calibration ? (
-          <span className="text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded">
-            Calibrated
+          <span className="text-xs bg-[#365314]/50 text-[#65a30d] px-2 py-1 rounded font-mono">
+            CALIBRATED
           </span>
         ) : (
-          <span className="text-xs bg-yellow-900/50 text-yellow-400 px-2 py-1 rounded">
-            Not calibrated
+          <span className="text-xs bg-[#7f1d1d]/50 text-[#fbbf24] px-2 py-1 rounded font-mono">
+            NOT CALIBRATED
           </span>
         )}
       </div>
 
       {calibration ? (
-        <div className="text-sm text-slate-400 mb-3">
+        <div className="text-sm text-[#78716c] mb-4">
           <p>
             Current offset:{' '}
-            <span className="text-slate-200 font-mono">
+            <span className="text-[#f5f0e6] font-mono">
               {(calibration.offsetSec * 1000).toFixed(1)}ms
             </span>
           </p>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-[#57534e] mt-1">
             Last calibrated: {new Date(calibration.calibratedAt).toLocaleDateString()}
           </p>
         </div>
       ) : (
-        <p className="text-sm text-slate-400 mb-3">
+        <p className="text-sm text-[#78716c] mb-4">
           Calibrate your audio input for accurate timing detection during gameplay.
         </p>
       )}
 
       <button
         onClick={onStartCalibration}
-        className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors text-sm"
+        className="w-full py-3 px-4 bg-[#dc2626] hover:bg-[#ef4444] text-[#f5f0e6] rounded font-display tracking-wide transition-all hover:shadow-[0_0_20px_rgba(220,38,38,0.5)]"
       >
-        {calibration ? 'Recalibrate' : 'Start Calibration'}
+        {calibration ? 'RECALIBRATE' : 'START CALIBRATION'}
       </button>
+    </div>
+  );
+}
+
+function InstructionsCard() {
+  return (
+    <div className="bg-[#1a1614] border border-[#292524] rounded p-5">
+      <h2 className="font-display text-xl text-[#f5f0e6] tracking-wide mb-4">
+        HOW TO PLAY
+      </h2>
+      <div className="text-[#78716c] text-sm space-y-3">
+        <div className="flex gap-3">
+          <span className="text-[#dc2626] font-mono font-bold">1.</span>
+          <p>Connect your guitar to your computer via USB audio interface</p>
+        </div>
+        <div className="flex gap-3">
+          <span className="text-[#dc2626] font-mono font-bold">2.</span>
+          <p>Select the audio input device and click "Start Audio"</p>
+        </div>
+        <div className="flex gap-3">
+          <span className="text-[#dc2626] font-mono font-bold">3.</span>
+          <p>Run the calibration wizard for accurate timing</p>
+        </div>
+        <div className="flex gap-3">
+          <span className="text-[#dc2626] font-mono font-bold">4.</span>
+          <p>Import a tab and start practicing</p>
+        </div>
+        <div className="mt-4 p-3 bg-[#0a0a0a] border border-[#292524] rounded">
+          <p className="text-xs text-[#57534e]">
+            <span className="text-[#d97706]">TIP:</span> For best results, use a clean tone with sustained notes. The pitch detection works best without heavy distortion.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

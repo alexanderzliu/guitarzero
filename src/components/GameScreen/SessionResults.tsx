@@ -5,7 +5,8 @@ import {
 } from '../../lib/session/aggregateCalculator';
 
 // ============================================================================
-// Session Results - Inline Results Display After Game Completion
+// Session Results - "Garage Film" Aesthetic
+// The moment after the last note - dramatic, celebratory
 // ============================================================================
 
 interface SessionResultsProps {
@@ -20,71 +21,87 @@ export function SessionResults({ session, onPlayAgain, onExit }: SessionResultsP
   const timingTendency = getTimingTendency(aggregate.averageOffsetMs);
 
   return (
-    <div className="absolute inset-0 bg-slate-900/98 flex items-center justify-center z-50">
-      <div className="bg-slate-800 rounded-2xl p-8 max-w-2xl w-full mx-4 shadow-2xl">
+    <div className="absolute inset-0 bg-[#0a0a0a]/98 flex items-center justify-center z-50">
+      {/* Subtle red glow from behind */}
+      <div
+        className="absolute inset-0 opacity-30"
+        style={{
+          background: 'radial-gradient(ellipse at center, rgba(220, 38, 38, 0.2) 0%, transparent 70%)'
+        }}
+      />
+
+      <div className="relative bg-[#1a1614] border border-[#292524] rounded p-8 max-w-2xl w-full mx-4">
         {/* Header */}
-        <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-white mb-1">Session Complete</h2>
-          <p className="text-slate-400">{session.tabTitle}</p>
+        <div className="text-center mb-8">
+          <h2 className="font-display text-4xl text-[#f5f0e6] tracking-wide mb-2">
+            SESSION COMPLETE
+          </h2>
+          <p className="text-[#78716c]">{session.tabTitle}</p>
         </div>
 
-        {/* Grade and Score */}
-        <div className="flex items-center justify-center gap-8 mb-8">
+        {/* Grade and Score - the hero moment */}
+        <div className="flex items-center justify-center gap-12 mb-10">
           {/* Grade */}
           <div className="text-center">
             <div
-              className={`text-8xl font-bold ${getGradeColor(aggregate.grade)}`}
+              className={`font-display text-9xl tracking-tight ${getGradeColor(aggregate.grade)}`}
+              style={{
+                textShadow: getGradeGlow(aggregate.grade)
+              }}
             >
               {aggregate.grade}
             </div>
-            <div className="text-slate-500 text-sm uppercase tracking-wide mt-1">
-              Grade
+            <div className="font-display text-xs text-[#57534e] tracking-widest mt-2">
+              GRADE
             </div>
           </div>
 
+          {/* Divider */}
+          <div className="h-32 w-px bg-[#292524]" />
+
           {/* Score */}
           <div className="text-center">
-            <div className="text-5xl font-bold text-white tabular-nums">
+            <div className="font-mono text-5xl font-bold text-[#f5f0e6] tabular-nums">
               {aggregate.score.toLocaleString()}
             </div>
-            <div className="text-slate-500 text-sm uppercase tracking-wide mt-1">
-              Score
+            <div className="font-display text-xs text-[#57534e] tracking-widest mt-2">
+              SCORE
             </div>
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-4 gap-3 mb-6">
-          <StatCard label="Accuracy" value={`${aggregate.accuracy}%`} />
-          <StatCard label="Max Streak" value={aggregate.maxStreak.toString()} />
+        <div className="grid grid-cols-4 gap-3 mb-8">
+          <StatCard label="ACCURACY" value={`${aggregate.accuracy}%`} />
+          <StatCard label="MAX STREAK" value={aggregate.maxStreak.toString()} />
           <StatCard
-            label="Perfect"
+            label="PERFECT"
             value={aggregate.perfectCount.toString()}
-            color="green"
+            color="perfect"
           />
           <StatCard
-            label="Good"
+            label="GOOD"
             value={aggregate.goodCount.toString()}
-            color="blue"
+            color="good"
           />
           <StatCard
             label="OK"
             value={aggregate.okCount.toString()}
-            color="yellow"
+            color="ok"
           />
           <StatCard
-            label="Miss"
+            label="MISS"
             value={aggregate.missCount.toString()}
-            color="red"
+            color="miss"
           />
-          <StatCard label="Total Notes" value={aggregate.totalNotes.toString()} />
-          <StatCard label="Timing" value={timingTendency} />
+          <StatCard label="TOTAL NOTES" value={aggregate.totalNotes.toString()} />
+          <StatCard label="TIMING" value={timingTendency} />
         </div>
 
         {/* Timing Histogram */}
-        <div className="bg-slate-700 rounded-xl p-4 mb-6">
-          <h3 className="text-sm font-medium text-slate-300 mb-3">
-            Timing Distribution
+        <div className="bg-[#0a0a0a] border border-[#292524] rounded p-4 mb-8">
+          <h3 className="font-display text-xs text-[#78716c] tracking-widest mb-4">
+            TIMING DISTRIBUTION
           </h3>
           <TimingHistogram buckets={timingDistribution} />
         </div>
@@ -93,21 +110,21 @@ export function SessionResults({ session, onPlayAgain, onExit }: SessionResultsP
         <div className="flex gap-4">
           <button
             onClick={onPlayAgain}
-            className="flex-1 py-3 px-6 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+            className="flex-1 py-4 px-6 bg-[#dc2626] hover:bg-[#ef4444] text-[#f5f0e6] rounded font-display text-lg tracking-wide transition-all hover:shadow-[0_0_30px_rgba(220,38,38,0.5)]"
           >
-            Play Again
+            PLAY AGAIN
           </button>
           <button
             onClick={onExit}
-            className="flex-1 py-3 px-6 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors"
+            className="flex-1 py-4 px-6 bg-[#292524] hover:bg-[#3f3f46] border border-[#57534e] text-[#f5f0e6] rounded font-display text-lg tracking-wide transition-all hover:border-[#dc2626]"
           >
-            Back to Tab
+            BACK TO TAB
           </button>
         </div>
 
         {/* Speed indicator */}
         {session.playbackSpeed < 1 && (
-          <p className="text-center text-slate-500 text-sm mt-4">
+          <p className="text-center text-[#78716c] text-sm mt-4 font-mono">
             Played at {session.playbackSpeed}x speed
           </p>
         )}
@@ -123,25 +140,29 @@ export function SessionResults({ session, onPlayAgain, onExit }: SessionResultsP
 interface StatCardProps {
   label: string;
   value: string;
-  color?: 'green' | 'blue' | 'yellow' | 'red';
+  color?: 'perfect' | 'good' | 'ok' | 'miss';
 }
 
 function StatCard({ label, value, color }: StatCardProps) {
   const colorClass =
-    color === 'green'
-      ? 'text-green-400'
-      : color === 'blue'
-        ? 'text-blue-400'
-        : color === 'yellow'
-          ? 'text-yellow-400'
-          : color === 'red'
-            ? 'text-red-400'
-            : 'text-white';
+    color === 'perfect'
+      ? 'text-[#fbbf24]'
+      : color === 'good'
+        ? 'text-[#f5f0e6]'
+        : color === 'ok'
+          ? 'text-[#d97706]'
+          : color === 'miss'
+            ? 'text-[#dc2626]'
+            : 'text-[#f5f0e6]';
 
   return (
-    <div className="bg-slate-700 rounded-lg px-3 py-2 text-center">
-      <div className={`text-lg font-bold tabular-nums ${colorClass}`}>{value}</div>
-      <div className="text-xs text-slate-400">{label}</div>
+    <div className="bg-[#0a0a0a] border border-[#292524] rounded px-3 py-3 text-center">
+      <div className={`font-mono text-xl font-bold tabular-nums ${colorClass}`}>
+        {value}
+      </div>
+      <div className="font-display text-[10px] text-[#57534e] tracking-widest mt-1">
+        {label}
+      </div>
     </div>
   );
 }
@@ -165,17 +186,21 @@ function TimingHistogram({ buckets }: TimingHistogramProps) {
             <div className="w-full flex-1 flex items-end">
               <div
                 className={`w-full rounded-t transition-all ${
-                  isCenter ? 'bg-green-500' : 'bg-slate-500'
+                  isCenter
+                    ? 'bg-[#fbbf24] shadow-[0_0_10px_rgba(251,191,36,0.4)]'
+                    : 'bg-[#57534e]'
                 }`}
                 style={{ height: `${Math.max(height, 4)}%` }}
               />
             </div>
             {/* Label */}
-            <div className="text-xs text-slate-400 mt-2 whitespace-nowrap">
+            <div className="text-[10px] text-[#78716c] mt-2 whitespace-nowrap font-mono">
               {bucket.label}
             </div>
             {/* Count */}
-            <div className="text-xs text-slate-500 tabular-nums">{bucket.count}</div>
+            <div className="text-[10px] text-[#57534e] tabular-nums font-mono">
+              {bucket.count}
+            </div>
           </div>
         );
       })}
@@ -186,16 +211,33 @@ function TimingHistogram({ buckets }: TimingHistogramProps) {
 function getGradeColor(grade: string): string {
   switch (grade) {
     case 'S':
-      return 'text-yellow-400';
+      return 'text-[#fbbf24]'; // Golden
     case 'A':
-      return 'text-green-400';
+      return 'text-[#f5f0e6]'; // Cream white
     case 'B':
-      return 'text-blue-400';
+      return 'text-[#d97706]'; // Amber
     case 'C':
-      return 'text-purple-400';
+      return 'text-[#a855f7]'; // Purple
     case 'D':
-      return 'text-orange-400';
+      return 'text-[#f97316]'; // Orange
     default:
-      return 'text-red-400';
+      return 'text-[#dc2626]'; // Blood red for F
+  }
+}
+
+function getGradeGlow(grade: string): string {
+  switch (grade) {
+    case 'S':
+      return '0 0 60px rgba(251, 191, 36, 0.6), 0 0 120px rgba(251, 191, 36, 0.3)';
+    case 'A':
+      return '0 0 40px rgba(245, 240, 230, 0.4)';
+    case 'B':
+      return '0 0 40px rgba(217, 119, 6, 0.4)';
+    case 'C':
+      return '0 0 40px rgba(168, 85, 247, 0.4)';
+    case 'D':
+      return '0 0 40px rgba(249, 115, 22, 0.4)';
+    default:
+      return '0 0 40px rgba(220, 38, 38, 0.4)';
   }
 }

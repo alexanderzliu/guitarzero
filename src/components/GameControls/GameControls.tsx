@@ -2,7 +2,7 @@ import type { GameState, LoopConfig } from '../../types';
 import { formatTime } from '../../lib/tabs/tempoUtils';
 
 // ============================================================================
-// Game Controls Component - Play/Pause, Speed, Look-ahead, Section Loop
+// Game Controls - "Garage Film" Aesthetic
 // ============================================================================
 
 interface GameControlsProps {
@@ -20,7 +20,6 @@ interface GameControlsProps {
   onLookAheadChange: (sec: number) => void;
   onStartAudio: () => void;
   onExit: () => void;
-  // Practice mode section looping
   sections: Array<{ id: string; name: string }>;
   loopConfig: LoopConfig | null;
   loopCount: number;
@@ -53,7 +52,6 @@ export function GameControls({
   const isCountdown = gameState === 'countdown';
   const isFinished = gameState === 'finished';
 
-  // Speed presets
   const speedPresets = [
     { label: '0.25x', value: 0.25 },
     { label: '0.5x', value: 0.5 },
@@ -62,14 +60,14 @@ export function GameControls({
   ];
 
   return (
-    <div className="bg-slate-800 rounded-lg p-4 space-y-4">
+    <div className="bg-[#1a1614] border border-[#292524] rounded p-4 space-y-4">
       {/* Audio Warning */}
       {!isAudioRunning && (
-        <div className="flex items-center justify-between p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg">
-          <span className="text-yellow-400 text-sm">Audio required for timing</span>
+        <div className="flex items-center justify-between p-3 bg-[#7f1d1d]/30 border border-[#dc2626]/50 rounded">
+          <span className="text-[#fbbf24] text-sm">Audio required for timing</span>
           <button
             onClick={onStartAudio}
-            className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded transition-colors"
+            className="px-3 py-1 bg-[#dc2626] hover:bg-[#ef4444] text-[#f5f0e6] text-sm rounded transition-all hover:shadow-[0_0_15px_rgba(220,38,38,0.5)]"
           >
             Start Audio
           </button>
@@ -83,71 +81,77 @@ export function GameControls({
           <button
             onClick={onStart}
             disabled={!isAudioRunning}
-            className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-6 py-3 bg-[#dc2626] hover:bg-[#ef4444] disabled:bg-[#7f1d1d] disabled:opacity-50 text-[#f5f0e6] rounded font-semibold transition-all hover:shadow-[0_0_20px_rgba(220,38,38,0.6)]"
           >
             <PlayIcon />
-            {isFinished ? 'Play Again' : 'Play'}
+            <span className="font-display tracking-wide">
+              {isFinished ? 'PLAY AGAIN' : 'PLAY'}
+            </span>
           </button>
         ) : isPlaying || isCountdown ? (
           <button
             onClick={onPause}
-            className="flex items-center gap-2 px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-6 py-3 bg-[#d97706] hover:bg-[#f59e0b] text-[#f5f0e6] rounded font-semibold transition-all hover:shadow-[0_0_20px_rgba(217,119,6,0.6)]"
           >
             <PauseIcon />
-            Pause
+            <span className="font-display tracking-wide">PAUSE</span>
           </button>
         ) : isPaused ? (
           <button
             onClick={onResume}
-            className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-6 py-3 bg-[#dc2626] hover:bg-[#ef4444] text-[#f5f0e6] rounded font-semibold transition-all hover:shadow-[0_0_20px_rgba(220,38,38,0.6)]"
           >
             <PlayIcon />
-            Resume
+            <span className="font-display tracking-wide">RESUME</span>
           </button>
         ) : null}
 
-        {/* Stop Button (only when not idle) */}
+        {/* Stop Button */}
         {!isIdle && (
           <button
             onClick={onStop}
-            className="flex items-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-3 bg-[#292524] hover:bg-[#3f3f46] border border-[#57534e] text-[#f5f0e6] rounded transition-all hover:border-[#dc2626]"
           >
             <StopIcon />
-            Stop
+            <span className="font-display tracking-wide">STOP</span>
           </button>
         )}
 
         {/* Progress Display */}
         <div className="flex-1 text-center">
-          <span className="text-slate-200 font-mono text-lg">
-            {formatTime(currentTimeSec)} / {formatTime(duration)}
+          <span className="font-mono text-lg text-[#f5f0e6] tabular-nums">
+            {formatTime(currentTimeSec)}
+          </span>
+          <span className="text-[#57534e] mx-2">/</span>
+          <span className="font-mono text-lg text-[#78716c] tabular-nums">
+            {formatTime(duration)}
           </span>
         </div>
 
         {/* Exit Button */}
         <button
           onClick={onExit}
-          className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+          className="px-4 py-3 bg-[#292524] hover:bg-[#3f3f46] border border-[#57534e] text-[#78716c] hover:text-[#f5f0e6] rounded transition-all hover:border-[#dc2626]"
         >
-          Exit
+          <span className="font-display tracking-wide">EXIT</span>
         </button>
       </div>
 
       {/* Settings Row */}
-      <div className="flex items-center gap-6 pt-2 border-t border-slate-700">
+      <div className="flex items-center gap-6 pt-3 border-t border-[#292524]">
         {/* Speed Control */}
         <div className="flex items-center gap-3">
-          <label className="text-slate-400 text-sm">Speed:</label>
+          <label className="font-display text-xs text-[#78716c] tracking-widest">SPEED</label>
           <div className="flex gap-1">
             {speedPresets.map((preset) => (
               <button
                 key={preset.value}
                 onClick={() => onSpeedChange(preset.value)}
                 disabled={isPlaying || isCountdown}
-                className={`px-3 py-1 text-sm rounded transition-colors ${
+                className={`px-3 py-1 text-sm font-mono rounded transition-all ${
                   speed === preset.value
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-50'
+                    ? 'bg-[#dc2626] text-[#f5f0e6] shadow-[0_0_10px_rgba(220,38,38,0.4)]'
+                    : 'bg-[#292524] text-[#78716c] hover:text-[#f5f0e6] hover:bg-[#3f3f46] border border-[#3f3f46] disabled:opacity-40'
                 }`}
               >
                 {preset.label}
@@ -158,7 +162,7 @@ export function GameControls({
 
         {/* Look-ahead Control */}
         <div className="flex items-center gap-3">
-          <label className="text-slate-400 text-sm">Look-ahead:</label>
+          <label className="font-display text-xs text-[#78716c] tracking-widest">LOOK-AHEAD</label>
           <input
             type="range"
             min="2"
@@ -167,20 +171,20 @@ export function GameControls({
             value={lookAheadSec}
             onChange={(e) => onLookAheadChange(parseFloat(e.target.value))}
             disabled={isPlaying || isCountdown}
-            className="w-24 accent-blue-500"
+            className="w-24 accent-[#dc2626]"
           />
-          <span className="text-slate-300 text-sm w-8">{lookAheadSec}s</span>
+          <span className="font-mono text-sm text-[#f5f0e6] w-8">{lookAheadSec}s</span>
         </div>
 
         {/* Section Loop Control */}
         {sections.length > 0 && (
           <div className="flex items-center gap-3">
-            <label className="text-slate-400 text-sm">Loop:</label>
+            <label className="font-display text-xs text-[#78716c] tracking-widest">LOOP</label>
             <select
               value={loopConfig?.sectionId || ''}
               onChange={(e) => onLoopSectionChange(e.target.value || null)}
               disabled={isPlaying || isCountdown}
-              className="px-2 py-1 bg-slate-700 text-slate-200 text-sm rounded border border-slate-600 disabled:opacity-50"
+              className="px-2 py-1 bg-[#0a0a0a] text-[#f5f0e6] text-sm rounded border border-[#292524] focus:border-[#d97706] focus:outline-none disabled:opacity-40"
             >
               <option value="">Full song</option>
               {sections.map((section) => (
@@ -190,22 +194,31 @@ export function GameControls({
               ))}
             </select>
             {loopConfig && loopCount > 0 && (
-              <span className="text-purple-400 text-sm">Loop #{loopCount}</span>
+              <span className="font-mono text-sm text-[#d97706]">#{loopCount}</span>
             )}
           </div>
         )}
 
-        {/* Current Speed Display */}
-        <div className="ml-auto text-slate-500 text-sm">
-          {speed < 1 && <span className="text-yellow-400">Practice mode ({speed}x)</span>}
+        {/* Practice Mode Indicator */}
+        <div className="ml-auto">
+          {speed < 1 && (
+            <span className="font-display text-xs text-[#fbbf24] tracking-widest">
+              PRACTICE MODE
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Keyboard Shortcuts Hint */}
-      <div className="text-center text-slate-500 text-xs">
-        <span className="bg-slate-700 px-2 py-0.5 rounded">Space</span> Play/Pause
-        <span className="mx-2">•</span>
-        <span className="bg-slate-700 px-2 py-0.5 rounded">Esc</span> Exit
+      {/* Keyboard Shortcuts */}
+      <div className="text-center text-[#57534e] text-xs space-x-4">
+        <span>
+          <kbd className="bg-[#292524] text-[#78716c] px-2 py-0.5 rounded font-mono text-xs">Space</kbd>
+          {' '}Play/Pause
+        </span>
+        <span>
+          <kbd className="bg-[#292524] text-[#78716c] px-2 py-0.5 rounded font-mono text-xs">Esc</kbd>
+          {' '}Exit
+        </span>
       </div>
     </div>
   );
